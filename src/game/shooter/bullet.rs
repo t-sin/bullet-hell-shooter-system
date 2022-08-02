@@ -13,7 +13,10 @@ use ggez::{
 use glam;
 
 use super::SceneDrawable;
-use crate::bullet::{Bullet, BulletColor, BulletType};
+use crate::{
+    bullet::{Bullet, BulletColor, BulletType},
+    constant,
+};
 
 impl SceneDrawable for Bullet {
     fn draw(&self, ctx: &mut Context) -> GameResult<()> {
@@ -21,7 +24,9 @@ impl SceneDrawable for Bullet {
             BulletColor::White => Color::from_rgb(255, 255, 255),
         };
         let pos = self.pos;
-        let param = DrawParam::default().color(color);
+        let param = DrawParam::default()
+            .color(color)
+            .offset([-constant::SHOOTER_OFFSET_X, -constant::SHOOTER_OFFSET_Y]);
 
         match self.appearance.r#type {
             BulletType::Player => {
