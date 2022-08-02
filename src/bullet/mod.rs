@@ -1,7 +1,7 @@
 use glam;
 
-mod vm;
-use vm::VM;
+pub mod vm;
+use vm::{Inst, VM};
 
 pub enum BulletType {
     Player,
@@ -59,9 +59,13 @@ impl Bullet {
             enabled: false,
             input: Input::default(),
             pos: glam::vec2(x, y),
-            vm: VM::new(Vec::new(), Vec::new()),
+            vm: VM::new(Vec::new()),
             appearance: a,
         }
+    }
+
+    pub fn set_code(&mut self, code: Vec<Inst>) {
+        self.vm.set_code(code);
     }
 
     pub fn update(&mut self) {

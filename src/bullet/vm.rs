@@ -5,13 +5,14 @@ enum Data {
     Int(i32),
 }
 
+#[derive(Debug, Copy, Clone)]
 pub enum Inst {
-    Nop,
+    Term, // tells now the program reaches the end of program successfully
 }
 
 pub struct VM {
     pc: usize,
-    code: Vec<Inst>,
+    code: Box<[Inst]>,
     stack: Vec<Data>,
     memory: Vec<u8>,
 }
@@ -19,20 +20,32 @@ pub struct VM {
 struct Terminated(bool);
 
 #[derive(Debug)]
-pub enum RuntimeError {}
+pub enum RuntimeError {
+    OutOfCode(usize, Vec<Inst>),
+}
 
 fn run1(bullet: &mut Bullet) -> Result<Terminated, RuntimeError> {
-    Ok(Terminated(true))
+    match bullet.vm.code.get(bullet.vm.pc) {
+        Some(Inst::Term) => Ok(Terminated(true)),
+        None => Err(RuntimeError::OutOfCode(
+            bullet.vm.pc,
+            Vec::from(bullet.vm.code.clone()),
+        )),
+    }
 }
 
 impl VM {
-    pub fn new(code: Vec<Inst>, memory: Vec<u8>) -> Self {
+    pub fn new(memory: Vec<u8>) -> Self {
         VM {
             pc: 0,
-            code,
+            code: Vec::new().into(),
             stack: Vec::new(),
             memory,
         }
+    }
+
+    pub fn set_code(&mut self, code: Vec<Inst>) {
+        self.code = code.into();
     }
 
     pub fn run(bullet: &mut Bullet) -> Result<(), RuntimeError> {

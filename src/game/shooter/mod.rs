@@ -15,7 +15,7 @@ use ggez::{
 use glam;
 
 use crate::{
-    bullet::{Appearance, Bullet, BulletColor, BulletType, Input},
+    bullet::{vm::Inst, Appearance, Bullet, BulletColor, BulletType, Input},
     constant,
     game::Scene,
 };
@@ -33,22 +33,29 @@ pub struct ShooterScene {
 
 impl ShooterScene {
     pub fn new() -> Self {
+        static DO_NOTHING_CODE: [Inst; 1] = [Inst::Term];
+
         let mut bullets = Vec::new();
         for _ in 0..2000 {
-            let bullet = Bullet::new(
+            let mut bullet = Bullet::new(
                 0.0,
                 0.0,
                 Appearance::new(BulletType::Bullet1, BulletColor::White),
             );
+            bullet.set_code(Vec::from(DO_NOTHING_CODE));
             bullets.push(bullet);
         }
 
+        static PLAYER_CODE: [Inst; 1] = [Inst::Term];
+        let mut player = Bullet::new(
+            200.0,
+            400.0,
+            Appearance::new(BulletType::Player, BulletColor::White),
+        );
+        player.set_code(PLAYER_CODE.into());
+
         Self {
-            player: Bullet::new(
-                200.0,
-                400.0,
-                Appearance::new(BulletType::Player, BulletColor::White),
-            ),
+            player,
             bullets: Vec::new(),
         }
     }
