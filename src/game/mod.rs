@@ -24,6 +24,7 @@ impl EventHandler for BulletsGame {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         self.scene.update(ctx)
     }
+
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         self.scene.draw(ctx)
     }

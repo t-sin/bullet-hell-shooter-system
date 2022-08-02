@@ -1,14 +1,54 @@
-use ggez::{event::EventHandler, Context, GameResult};
+use ggez::{
+    event::EventHandler,
+    graphics::{
+        self,
+        // BlendMode, Canvas,
+        Color,
+        DrawMode,
+        DrawParam,
+        MeshBuilder,
+        Rect,
+    },
+    input::keyboard::{self, KeyCode, KeyMods},
+    Context, GameResult,
+};
+use glam;
 
-use crate::{bullet::Bullet, game::Scene};
+use crate::{
+    bullet::{Appearance, Bullet, BulletColor, BulletType, Input},
+    constant,
+    game::Scene,
+};
+
+mod bullet;
+
+trait SceneDrawable {
+    fn draw(&self, ctx: &mut Context) -> GameResult<()>;
+}
 
 pub struct ShooterScene {
+    player: Bullet,
     bullets: Vec<Bullet>,
 }
 
 impl ShooterScene {
     pub fn new() -> Self {
+        let mut bullets = Vec::new();
+        for _ in 0..2000 {
+            let bullet = Bullet::new(
+                0.0,
+                0.0,
+                Appearance::new(BulletType::Bullet1, BulletColor::White),
+            );
+            bullets.push(bullet);
+        }
+
         Self {
+            player: Bullet::new(
+                400.0,
+                450.0,
+                Appearance::new(BulletType::Player, BulletColor::White),
+            ),
             bullets: Vec::new(),
         }
     }
@@ -21,10 +61,97 @@ impl Scene for ShooterScene {
 }
 
 impl EventHandler for ShooterScene {
-    fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
+    fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
+        self.player.input = Input::default();
+        if keyboard::is_key_pressed(ctx, KeyCode::Right) {
+            self.player.input.right = true;
+        }
+        if keyboard::is_key_pressed(ctx, KeyCode::Left) {
+            self.player.input.left = true;
+        }
+        if keyboard::is_key_pressed(ctx, KeyCode::Up) {
+            self.player.input.up = true;
+        }
+        if keyboard::is_key_pressed(ctx, KeyCode::Down) {
+            self.player.input.down = true;
+        }
+        if keyboard::is_key_pressed(ctx, KeyCode::Z) {
+            self.player.input.shot = true;
+        }
+        if keyboard::is_mod_active(ctx, KeyMods::SHIFT) {
+            self.player.input.slow = true;
+        }
+
+        // dummy input processing for player
+        // this will replaced by VM code
+        {
+            let (dx, dy) = if self.player.input.slow {
+                (4.0, 4.0)
+            } else {
+                (9.0, 9.0)
+            };
+            if self.player.input.right {
+                self.player.pos.x += dx
+            }
+            if self.player.input.left {
+                self.player.pos.x += -dx
+            }
+            if self.player.input.up {
+                self.player.pos.y -= dy
+            }
+            if self.player.input.down {
+                self.player.pos.y += dy
+            }
+        }
+
         Ok(())
     }
-    fn draw(&mut self, _ctx: &mut Context) -> GameResult<()> {
+
+    fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
+        // let mut canvas = Canvas::new(
+        //     ctx,
+        //     constant::WIDTH as u16,
+        //     constant::HEIGHT as u16,
+        //     conf::NumSamples::One,
+        //     graphics::get_window_color_format(ctx),
+        // )?;
+        // graphics::set_canvas(ctx, Some(&canvas));
+
+        static BG_RECT: Rect = Rect::new(0.0, 0.0, constant::WIDTH, constant::HEIGHT);
+        static BG_COLOR: Color = Color::new(0.0, 0.1, 0.1, 1.0);
+        let bg = MeshBuilder::new()
+            .rectangle(DrawMode::fill(), BG_RECT, BG_COLOR)?
+            .build(ctx)?;
+        graphics::draw(ctx, &bg, DrawParam::default().dest(glam::vec2(0.0, 0.0)))?;
+
+        static SHOOTER_AREA_RECT: Rect = Rect::new(200.0, 50.0, 400.0, 500.0);
+        static SHOOTER_AREA_COLOR: Color = Color::new(0.0, 0.07, 0.1, 0.98);
+        static SHOOTER_BORDER_COLOR: Color = Color::new(0.0, 0.6, 0.8, 1.0);
+        let shooter_area = MeshBuilder::new()
+            .rectangle(DrawMode::fill(), SHOOTER_AREA_RECT, SHOOTER_AREA_COLOR)?
+            .build(ctx)?;
+        let shooter_border = MeshBuilder::new()
+            .rectangle(
+                DrawMode::stroke(1.0),
+                SHOOTER_AREA_RECT,
+                SHOOTER_BORDER_COLOR,
+            )?
+            .build(ctx)?;
+        graphics::draw(ctx, &shooter_area, DrawParam::default())?;
+        graphics::draw(ctx, &shooter_border, DrawParam::default())?;
+
+        self.player.draw(ctx)?;
+
+        for bullet in self.bullets.iter() {
+            if bullet.enabled {
+                bullet.draw(ctx)?;
+            }
+        }
+
+        graphics::present(ctx)?;
+        // graphics::set_canvas(ctx, None);
+        // canvas.set_blend_mode(Some(BlendMode::Premultiplied));
+
         Ok(())
     }
 }
