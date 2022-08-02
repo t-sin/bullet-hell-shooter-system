@@ -1,3 +1,4 @@
+mod bullet;
 mod game;
 
 use ggez::{

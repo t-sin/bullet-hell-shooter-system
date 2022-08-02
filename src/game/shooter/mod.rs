@@ -1,12 +1,16 @@
 use ggez::{event::EventHandler, Context, GameResult};
 
-use crate::game::Scene;
+use crate::{bullet::Bullet, game::Scene};
 
-pub struct ShooterScene {}
+pub struct ShooterScene {
+    bullets: Vec<Bullet>,
+}
 
 impl ShooterScene {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            bullets: Vec::new(),
+        }
     }
 }
 
