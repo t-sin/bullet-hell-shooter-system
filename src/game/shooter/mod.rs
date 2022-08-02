@@ -45,8 +45,8 @@ impl ShooterScene {
 
         Self {
             player: Bullet::new(
+                200.0,
                 400.0,
-                450.0,
                 Appearance::new(BulletType::Player, BulletColor::White),
             ),
             bullets: Vec::new(),
@@ -124,7 +124,12 @@ impl EventHandler for ShooterScene {
             .build(ctx)?;
         graphics::draw(ctx, &bg, DrawParam::default().dest(glam::vec2(0.0, 0.0)))?;
 
-        static SHOOTER_AREA_RECT: Rect = Rect::new(200.0, 50.0, 400.0, 500.0);
+        static SHOOTER_AREA_RECT: Rect = Rect::new(
+            constant::SHOOTER_OFFSET_X,
+            constant::SHOOTER_OFFSET_Y,
+            constant::SHOOTER_WIDTH,
+            constant::SHOOTER_HEIGHT,
+        );
         static SHOOTER_AREA_COLOR: Color = Color::new(0.0, 0.07, 0.1, 0.98);
         static SHOOTER_BORDER_COLOR: Color = Color::new(0.0, 0.6, 0.8, 1.0);
         let shooter_area = MeshBuilder::new()
