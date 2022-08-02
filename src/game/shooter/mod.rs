@@ -46,7 +46,20 @@ impl ShooterScene {
             bullets.push(bullet);
         }
 
-        static PLAYER_CODE: [Inst; 1] = [Inst::Term];
+        static PLAYER_CODE: [Inst; 12] = [
+            Inst::GetPosX,
+            Inst::Float(1.0),
+            Inst::Add,
+            Inst::Dup,
+            Inst::Float(constant::SHOOTER_PLAYER_AREA_X2),
+            Inst::Lt,
+            Inst::JumpIfZero(1),
+            Inst::SetPosX,
+            Inst::Jump(2),
+            Inst::Float(constant::SHOOTER_PLAYER_AREA_X2),
+            Inst::SetPosX,
+            Inst::Term,
+        ];
         let mut player = Bullet::new(
             200.0,
             400.0,
