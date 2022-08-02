@@ -26,9 +26,9 @@ impl SceneDrawable for Bullet {
         match self.appearance.r#type {
             BulletType::Player => {
                 let points: [glam::Vec2; 3] = [
-                    glam::vec2(10.0, 7.0),
+                    glam::vec2(8.0, 7.0),
                     glam::vec2(0.0, -12.0),
-                    glam::vec2(-10.0, 7.0),
+                    glam::vec2(-8.0, 7.0),
                 ];
 
                 let dest = glam::vec2(0.0, 0.0) + pos;
