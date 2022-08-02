@@ -63,4 +63,10 @@ impl Bullet {
             appearance: a,
         }
     }
+
+    pub fn update(&mut self) {
+        if let Err(err) = VM::run(self) {
+            println!("VM runtime error: {:?}", err);
+        }
+    }
 }

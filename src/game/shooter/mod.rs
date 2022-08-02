@@ -84,23 +84,31 @@ impl EventHandler for ShooterScene {
 
         // dummy input processing for player
         // this will replaced by VM code
-        {
-            let (dx, dy) = if self.player.input.slow {
-                (4.0, 4.0)
-            } else {
-                (9.0, 9.0)
-            };
-            if self.player.input.right {
-                self.player.pos.x += dx
-            }
-            if self.player.input.left {
-                self.player.pos.x += -dx
-            }
-            if self.player.input.up {
-                self.player.pos.y -= dy
-            }
-            if self.player.input.down {
-                self.player.pos.y += dy
+        // {
+        //     let (dx, dy) = if self.player.input.slow {
+        //         (4.0, 4.0)
+        //     } else {
+        //         (9.0, 9.0)
+        //     };
+        //     if self.player.input.right {
+        //         self.player.pos.x += dx
+        //     }
+        //     if self.player.input.left {
+        //         self.player.pos.x += -dx
+        //     }
+        //     if self.player.input.up {
+        //         self.player.pos.y -= dy
+        //     }
+        //     if self.player.input.down {
+        //         self.player.pos.y += dy
+        //     }
+        // }
+
+        self.player.update();
+
+        for bullet in self.bullets.iter_mut() {
+            if bullet.enabled {
+                bullet.update();
             }
         }
 
