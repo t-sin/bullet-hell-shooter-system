@@ -30,21 +30,17 @@ impl SceneDrawable for Bullet {
 
         match self.appearance.r#type {
             BulletType::Player => {
-                let points: [glam::Vec2; 3] = [
-                    glam::vec2(8.0, 7.0),
-                    glam::vec2(0.0, -12.0),
-                    glam::vec2(-8.0, 7.0),
-                ];
+                static POINTS: [[f32; 2]; 3] = [[8.0, 7.0], [0.0, -12.0], [-8.0, 7.0]];
 
                 let dest = glam::vec2(0.0, 0.0) + pos;
                 let param = param.dest::<Point2<f32>>(dest.into());
                 let mesh = MeshBuilder::new()
-                    .polygon(DrawMode::stroke(1.5), &points, color)?
+                    .polygon(DrawMode::stroke(1.5), &POINTS, color)?
                     .build(ctx)?;
                 graphics::draw(ctx, &mesh, param)?;
 
                 let hit_area = MeshBuilder::new()
-                    .circle(DrawMode::stroke(1.0), glam::vec2(0.0, 0.0), 5.0, 1.0, color)?
+                    .circle(DrawMode::stroke(1.0), [0.0, 0.0], 5.0, 1.0, color)?
                     //.circle(DrawMode::stroke(1.0), glam::vec2(0.0, 0.0), 3.0, 1.0, color)?
                     .build(ctx)?;
                 graphics::draw(ctx, &hit_area, param)?;
