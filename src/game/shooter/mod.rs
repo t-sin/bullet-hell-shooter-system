@@ -33,7 +33,7 @@ pub struct ShooterScene {
 
 impl ShooterScene {
     pub fn new() -> Self {
-        static DO_NOTHING_CODE: [Inst; 1] = [Inst::Term];
+        let DO_NOTHING_CODE = [Inst::Term];
 
         let mut bullets = Vec::new();
         for _ in 0..2000 {
@@ -42,22 +42,22 @@ impl ShooterScene {
                 0.0,
                 Appearance::new(BulletType::Bullet1, BulletColor::White),
             );
-            bullet.set_code(Vec::from(DO_NOTHING_CODE));
+            bullet.set_code(Vec::from(DO_NOTHING_CODE.clone()));
             bullets.push(bullet);
         }
 
-        static PLAYER_CODE: [Inst; 12] = [
-            Inst::GetPosX,
+        let PLAYER_CODE = [
+            Inst::Get("PosX".to_string()),
             Inst::Float(1.0),
             Inst::Add,
             Inst::Dup,
             Inst::Float(constant::SHOOTER_PLAYER_AREA_X2),
             Inst::Lt,
             Inst::JumpIfZero(1),
-            Inst::SetPosX,
+            Inst::Set("PosX".to_string()),
             Inst::Jump(2),
             Inst::Float(constant::SHOOTER_PLAYER_AREA_X2),
-            Inst::SetPosX,
+            Inst::Set("PosX".to_string()),
             Inst::Term,
         ];
         let mut player = Bullet::new(
@@ -65,7 +65,7 @@ impl ShooterScene {
             400.0,
             Appearance::new(BulletType::Player, BulletColor::White),
         );
-        player.set_code(PLAYER_CODE.into());
+        player.set_code(PLAYER_CODE.clone().into());
 
         Self {
             player,

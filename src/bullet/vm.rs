@@ -5,17 +5,15 @@ enum Data {
     Float(f32),
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub enum Inst {
     // system words
     Term, // tells now the program reaches the end of program successfully
     // embedded data
     Float(f32),
-    // position accessors
-    GetPosX,
-    GetPosY,
-    SetPosX,
-    SetPosY,
+    // state accessors
+    Get(String),
+    Set(String),
     // arithmetics
     Add,
     // comparators
@@ -47,6 +45,7 @@ pub enum RuntimeError {
     OutOfCode(usize, Vec<Inst>),
     StackUnderflow,
     TypeMismatched(Data, ExpectedTypeName),
+    UnknownStateName(String),
 }
 
 fn run1(bullet: &mut Bullet) -> Result<Terminated, RuntimeError> {
@@ -63,40 +62,42 @@ fn run1(bullet: &mut Bullet) -> Result<Terminated, RuntimeError> {
                 bullet.vm.stack.push(Data::Float(*f));
                 Ok(Terminated(false))
             }
-            Inst::GetPosX => {
-                bullet.vm.stack.push(Data::Float(bullet.pos.x));
-                //println!("GetPosX: pos.x -> {}", bullet.pos.x);
+            Inst::Get(name) => {
+                match name.as_str() {
+                    "PosX" => bullet.vm.stack.push(Data::Float(bullet.pos.x)),
+                    "PosY" => bullet.vm.stack.push(Data::Float(bullet.pos.y)),
+                    _ => return Err(RuntimeError::UnknownStateName(name.to_owned())),
+                };
                 Ok(Terminated(false))
             }
-            Inst::GetPosY => {
-                bullet.vm.stack.push(Data::Float(bullet.pos.y));
-                Ok(Terminated(false))
-            }
-            Inst::SetPosX => {
-                if let Some(x) = bullet.vm.stack.pop() {
-                    if let Data::Float(x) = x {
-                        //println!("SetPosX: pos.x <- {}", x);
-                        bullet.pos.x = x;
-                        Ok(Terminated(false))
-                    } else {
-                        Err(RuntimeError::TypeMismatched(x, "float".to_owned()))
+            Inst::Set(name) => {
+                if let Some(d) = bullet.vm.stack.pop() {
+                    match name.as_str() {
+                        "PosX" => {
+                            if let Data::Float(f) = d {
+                                //println!("SetPosX: pos.x <- {}", x);
+                                bullet.pos.x = f;
+                                Ok(Terminated(false))
+                            } else {
+                                Err(RuntimeError::TypeMismatched(d, "float".to_owned()))
+                            }
+                        }
+                        "PosY" => {
+                            if let Data::Float(f) = d {
+                                //println!("SetPosX: pos.x <- {}", x);
+                                bullet.pos.y = f;
+                                Ok(Terminated(false))
+                            } else {
+                                Err(RuntimeError::TypeMismatched(d, "float".to_owned()))
+                            }
+                        }
+                        _ => return Err(RuntimeError::UnknownStateName(name.to_owned())),
                     }
                 } else {
                     Err(RuntimeError::StackUnderflow)
                 }
             }
-            Inst::SetPosY => {
-                if let Some(y) = bullet.vm.stack.pop() {
-                    if let Data::Float(y) = y {
-                        bullet.pos.y = y;
-                        Ok(Terminated(false))
-                    } else {
-                        Err(RuntimeError::TypeMismatched(y, "float".to_owned()))
-                    }
-                } else {
-                    Err(RuntimeError::StackUnderflow)
-                }
-            }
+
             Inst::Add => {
                 if let Some(a) = bullet.vm.stack.pop() {
                     if let Some(b) = bullet.vm.stack.pop() {
