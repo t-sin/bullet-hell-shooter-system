@@ -1,5 +1,7 @@
 use glam;
 
+mod tokenize;
+
 pub mod vm;
 use vm::{Inst, VM};
 
