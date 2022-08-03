@@ -103,7 +103,7 @@ impl EventHandler for ShooterScene {
         }
 
         // dummy input processing for player
-        // this will replaced by VM code
+        // this will be replaced by VM code
         // {
         //     let (dx, dy) = if self.player.input.slow {
         //         (4.0, 4.0)
