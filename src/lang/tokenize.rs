@@ -1,6 +1,7 @@
 use nom::{
-    character::complete::{char, digit1},
+    character::complete::{char, digit1, none_of},
     combinator::opt,
+    multi::many0,
     sequence::tuple,
     IResult,
 };
@@ -30,6 +31,12 @@ pub fn tokenize_float(s: &str) -> IResult<&str, Token> {
         }
         Err(err) => Err(err),
     }
+}
+
+fn tokenize_string(s: &str) -> IResult<&str, Token> {
+    let (s, (_, string, _)) = tuple((char('"'), many0(none_of("\"")), char('"')))(s)?;
+    let string: String = string.iter().collect();
+    Ok((s, Token::String(string)))
 }
 
 pub fn tokenize(s: &str) -> IResult<&str, Vec<Token>> {
@@ -71,5 +78,20 @@ mod tokenizer_test {
     fn test_tokenize_float() {
         test_tokenize_fn(&tokenize_float, Token::Float(Float(42.0)), "42.0");
         test_tokenize_fn(&tokenize_float, Token::Float(Float(-12.0)), "-12.0");
+    }
+
+    #[test]
+    fn test_tokenize_string_empty() {
+        test_tokenize_fn_fails(&tokenize_string, "");
+    }
+
+    #[test]
+    fn test_tokenize_string() {
+        test_tokenize_fn(&tokenize_string, Token::String("".to_string()), "\"\"");
+        test_tokenize_fn(
+            &tokenize_string,
+            Token::String("abc".to_string()),
+            "\"abc\"",
+        );
     }
 }
