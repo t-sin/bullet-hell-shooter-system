@@ -15,9 +15,9 @@ use ggez::{
 use glam;
 
 use crate::{
-    bullet::{vm::Inst, Appearance, Bullet, BulletColor, BulletType, Input},
     constant,
     game::Scene,
+    lang::{vm::Inst, Appearance, Bullet, BulletColor, BulletType, Input},
 };
 
 mod bullet;

@@ -1,6 +1,6 @@
-mod bullet;
 mod constant;
 mod game;
+mod lang;
 
 use ggez::{
     conf::{WindowMode, WindowSetup},

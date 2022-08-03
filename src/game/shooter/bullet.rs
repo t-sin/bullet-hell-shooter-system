@@ -14,8 +14,8 @@ use glam;
 
 use super::SceneDrawable;
 use crate::{
-    bullet::{Bullet, BulletColor, BulletType},
     constant,
+    lang::{Bullet, BulletColor, BulletType},
 };
 
 impl SceneDrawable for Bullet {
