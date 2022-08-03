@@ -312,4 +312,8 @@ mod tokenizer_test {
             "###,
         )
     }
+
+    // TODO: taking and returing values reqiures type signatures.
+    // #[test]
+    // fn test_tokenize_with_type_signatures() {}
 }
