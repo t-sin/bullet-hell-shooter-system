@@ -1,9 +1,12 @@
 use nom::{
-    character::complete::{char, digit1, none_of},
-    combinator::opt,
-    multi::many0,
+    branch::alt,
+    bytes::complete::tag,
+    character::complete::{char, digit1, none_of, one_of, space0, space1},
+    combinator::{opt, peek},
+    error::{Error, ErrorKind},
+    multi::{many0, many1},
     sequence::tuple,
-    IResult,
+    Err, IResult,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -11,12 +14,49 @@ pub struct Float(f32);
 impl Eq for Float {}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Keyword {
+    Fn,
+    Return,
+    If,
+    Else,
+    Let,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Delimiter {
+    OpenParen,  // '('
+    CloseParen, // ')'
+    OpenBrace,  // '{'
+    CloseBrace, // '}'
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BinOp {
+    Plus,     // '+'
+    Minus,    // '-'
+    Asterisk, // '*'
+    Slash,    // '/'
+    Percent,  // '%'
+    Gt,       // '>'
+    Lt,       // '<'
+    Gte,      // '>='
+    Lte,      // '<='
+    Eq,       // '=='
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Token {
     Float(Float),
     String(String),
+    Keyword(Box<Keyword>),
+    Delim(Box<Delimiter>),
+    Op(Box<BinOp>),
+    Assign,
+    Newline,
+    Ident(String),
 }
 
-pub fn tokenize_float(s: &str) -> IResult<&str, Token> {
+fn tokenize_float(s: &str) -> IResult<&str, Token> {
     let (s, minus) = opt(char('-'))(s)?;
 
     match tuple((digit1, char('.'), digit1))(s) {
@@ -39,10 +79,115 @@ fn tokenize_string(s: &str) -> IResult<&str, Token> {
     Ok((s, Token::String(string)))
 }
 
-pub fn tokenize(s: &str) -> IResult<&str, Vec<Token>> {
-    let tokens: Vec<Token> = Vec::new();
+fn tokenize_delimiter_str(s: &str) -> IResult<&str, &str> {
+    alt((tag("("), tag(")"), tag("{"), tag("}")))(s)
+}
 
-    Ok((s, tokens))
+fn tokenize_delimiter(s: &str) -> IResult<&str, Token> {
+    match tokenize_delimiter_str(s)? {
+        (s, "(") => Ok((s, Token::Delim(Box::new(Delimiter::OpenParen)))),
+        (s, ")") => Ok((s, Token::Delim(Box::new(Delimiter::CloseParen)))),
+        (s, "{") => Ok((s, Token::Delim(Box::new(Delimiter::OpenBrace)))),
+        (s, "}") => Ok((s, Token::Delim(Box::new(Delimiter::CloseBrace)))),
+        (s, _) => Err(Err::Error(Error::new(s, ErrorKind::Char))),
+    }
+}
+
+fn tokenize_keyword(s: &str) -> IResult<&str, Token> {
+    match tuple((
+        alt((tag("fn"), tag("return"), tag("if"), tag("else"), tag("let"))),
+        alt((space1, peek(tokenize_delimiter_str))),
+    ))(s)?
+    {
+        (s, ("fn", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Fn)))),
+        (s, ("return", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Return)))),
+        (s, ("if", _)) => Ok((s, Token::Keyword(Box::new(Keyword::If)))),
+        (s, ("else", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Else)))),
+        (s, ("let", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Let)))),
+        (s, _) => Err(Err::Error(Error::new(s, ErrorKind::Char))),
+    }
+}
+
+fn tokenize_op(s: &str) -> IResult<&str, Token> {
+    match alt((
+        tag("+"),
+        tag("-"),
+        tag("*"),
+        tag("/"),
+        tag("%"),
+        tag(">"),
+        tag("<"),
+        tag(">="),
+        tag("<="),
+        tag("=="),
+    ))(s)?
+    {
+        (s, "+") => Ok((s, Token::Op(Box::new(BinOp::Plus)))),
+        (s, "-") => Ok((s, Token::Op(Box::new(BinOp::Minus)))),
+        (s, "*") => Ok((s, Token::Op(Box::new(BinOp::Asterisk)))),
+        (s, "/") => Ok((s, Token::Op(Box::new(BinOp::Slash)))),
+        (s, "%") => Ok((s, Token::Op(Box::new(BinOp::Percent)))),
+        (s, ">") => Ok((s, Token::Op(Box::new(BinOp::Gt)))),
+        (s, "<") => Ok((s, Token::Op(Box::new(BinOp::Lt)))),
+        (s, ">=") => Ok((s, Token::Op(Box::new(BinOp::Gte)))),
+        (s, "<=") => Ok((s, Token::Op(Box::new(BinOp::Lte)))),
+        (s, "==") => Ok((s, Token::Op(Box::new(BinOp::Eq)))),
+        (s, _) => Err(Err::Error(Error::new(s, ErrorKind::Char))),
+    }
+}
+
+fn tokenize_misc(s: &str) -> IResult<&str, Token> {
+    match alt((char('='), char('\n')))(s)? {
+        (s, '=') => Ok((s, Token::Assign)),
+        (s, '\n') => Ok((s, Token::Newline)),
+        (s, _) => Err(Err::Error(Error::new(s, ErrorKind::Char))),
+    }
+}
+
+fn tokenize_ident(s: &str) -> IResult<&str, Token> {
+    let digits = "0123456789";
+    let alpha = "abcdefghijklmnopqrstuvwxyz";
+    let alpha_cap = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let underbar = "_";
+    let first_chars = ["$", alpha, alpha_cap, underbar].concat();
+    let rest_chars = [digits, alpha, alpha_cap, underbar].concat();
+
+    let (s, (first, rest)) = tuple((
+        many1(one_of(&first_chars[..])),
+        many0(one_of(&rest_chars[..])),
+    ))(s)?;
+    let first: String = first.into_iter().collect();
+    let rest: String = rest.into_iter().collect();
+    let ident: String = [first, rest].concat();
+
+    Ok((s, Token::Ident(ident)))
+}
+
+pub fn tokenize(s: &str) -> IResult<&str, Vec<Token>> {
+    let mut tokens: Vec<Token> = Vec::new();
+    let mut input = s;
+
+    loop {
+        let (s, _) = opt(space0)(input)?;
+        input = s;
+        if s == "" {
+            break;
+        }
+
+        let (s, token) = alt((
+            tokenize_float,
+            tokenize_string,
+            tokenize_delimiter,
+            tokenize_keyword,
+            tokenize_op,
+            tokenize_misc,
+            tokenize_ident,
+        ))(input)?;
+        input = s;
+        tokens.push(token);
+    }
+
+    Ok((input, tokens))
 }
 
 #[cfg(test)]
@@ -93,5 +238,78 @@ mod tokenizer_test {
             Token::String("abc".to_string()),
             "\"abc\"",
         );
+    }
+
+    fn test_tokenize_1(expected: Vec<Token>, input: &str) {
+        if let Ok(("", result)) = tokenize(input) {
+            assert_eq!(expected, result);
+        } else {
+            println!("result = {:?}", tokenize(input));
+            assert!(false);
+        }
+    }
+
+    #[test]
+    fn test_tokenize_complex1() {
+        test_tokenize_1(
+            vec![
+                Token::Keyword(Box::new(Keyword::Fn)),
+                Token::Ident("main".to_string()),
+                Token::Delim(Box::new(Delimiter::OpenParen)),
+                Token::Delim(Box::new(Delimiter::CloseParen)),
+                Token::Delim(Box::new(Delimiter::OpenBrace)),
+                Token::Keyword(Box::new(Keyword::Return)),
+                Token::Delim(Box::new(Delimiter::CloseBrace)),
+            ],
+            r"fn main() { return }",
+        )
+    }
+
+    #[test]
+    fn test_tokenize_complex2() {
+        test_tokenize_1(
+            vec![
+                Token::Newline,
+                Token::Keyword(Box::new(Keyword::Fn)),
+                Token::Ident("main".to_string()),
+                Token::Delim(Box::new(Delimiter::OpenParen)),
+                Token::Delim(Box::new(Delimiter::CloseParen)),
+                Token::Delim(Box::new(Delimiter::OpenBrace)),
+                Token::Newline,
+                Token::Keyword(Box::new(Keyword::Let)),
+                Token::Ident("new_x".to_string()),
+                Token::Assign,
+                Token::Ident("$px".to_string()),
+                Token::Op(Box::new(BinOp::Plus)),
+                Token::Float(Float(1.0)),
+                Token::Newline,
+                Token::Newline,
+                Token::Keyword(Box::new(Keyword::If)),
+                Token::Ident("new_x".to_string()),
+                Token::Op(Box::new(BinOp::Gt)),
+                Token::Float(Float(420.0)),
+                Token::Delim(Box::new(Delimiter::OpenBrace)),
+                Token::Ident("$px".to_string()),
+                Token::Assign,
+                Token::Float(Float(420.0)),
+                Token::Delim(Box::new(Delimiter::CloseBrace)),
+                Token::Keyword(Box::new(Keyword::Else)),
+                Token::Delim(Box::new(Delimiter::OpenBrace)),
+                Token::Ident("$px".to_string()),
+                Token::Assign,
+                Token::Ident("new_x".to_string()),
+                Token::Delim(Box::new(Delimiter::CloseBrace)),
+                Token::Newline,
+                Token::Delim(Box::new(Delimiter::CloseBrace)),
+                Token::Newline,
+            ],
+            r###"
+              fn main() {
+                let new_x = $px + 1.0
+
+                if new_x > 420.0 { $px = 420.0 } else { $px = new_x }
+              }
+            "###,
+        )
     }
 }
