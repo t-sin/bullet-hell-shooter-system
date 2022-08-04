@@ -373,5 +373,43 @@ mod parser_test {
             ),
             "let a = -1.0 * 1.0 == 2.0 + 3.0",
         );
+        test_parse_1(
+            SyntaxTree::GlobalAssign(
+                Symbol::Var(Name("a".to_string())),
+                Expr::Op2(
+                    Op2::Eq,
+                    Box::new(Expr::Op2(
+                        Op2::Add,
+                        Box::new(Expr::Op2(
+                            Op2::Mul,
+                            Box::new(Expr::Float(1.0)),
+                            Box::new(Expr::Float(2.0)),
+                        )),
+                        Box::new(Expr::Float(3.0)),
+                    )),
+                    Box::new(Expr::Float(4.0)),
+                ),
+            ),
+            "let a = 1.0 * 2.0 + 3.0 == 4.0",
+        );
+        test_parse_1(
+            SyntaxTree::GlobalAssign(
+                Symbol::Var(Name("a".to_string())),
+                Expr::Op2(
+                    Op2::Eq,
+                    Box::new(Expr::Float(1.0)),
+                    Box::new(Expr::Op2(
+                        Op2::Add,
+                        Box::new(Expr::Float(2.0)),
+                        Box::new(Expr::Op2(
+                            Op2::Mul,
+                            Box::new(Expr::Float(3.0)),
+                            Box::new(Expr::Float(4.0)),
+                        )),
+                    )),
+                ),
+            ),
+            "let a = 1.0 == 2.0 + 3.0 * 4.0",
+        );
     }
 }
