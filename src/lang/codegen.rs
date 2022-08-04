@@ -1,7 +1,15 @@
 use super::{
-    syntax_tree::{Body, Expr, Name, Symbol, SyntaxTree},
+    syntax_tree::{Body, Expr, Name, Op2, Symbol, SyntaxTree},
     vm::Inst,
 };
+
+fn get_vm_name(sname: &str) -> Option<String> {
+    match sname {
+        "px" => Some("PosX".to_string()),
+        "py" => Some("PosY".to_string()),
+        _ => None,
+    }
+}
 
 struct CodegenState {
     code: Vec<Inst>,
@@ -12,11 +20,23 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
         Expr::Float(f) => state.code.push(Inst::Float(*f)),
         Expr::String(s) => todo!("treat strings"),
         Expr::Symbol(sym) => match sym {
-            Symbol::State(Name(name)) => state.code.push(Inst::Get(name.to_string())),
+            Symbol::State(Name(name)) => {
+                if let Some(name) = get_vm_name(name) {
+                    state.code.push(Inst::Get(name))
+                } else {
+                    panic!("unknown VM state name: {}", name);
+                }
+            }
             Symbol::Var(_) => todo! {"treat lexical variables"},
         },
         Expr::Op2(op, expr1, expr2) => {
-            todo!("binary op!!!");
+            codegen_expr(expr1, state);
+            codegen_expr(expr2, state);
+            state.code.push(match op {
+                Op2::Add => Inst::Add,
+                Op2::Mul => Inst::Mul,
+                _ => todo!("implemented yet!"),
+            });
         }
         Expr::If(cond, tru, fls) => {
             todo!("binary if!!!");
@@ -29,8 +49,12 @@ fn codegen_main(body: &[Body], state: &mut CodegenState) {
         match b {
             Body::Assignment(sym, expr) => match sym {
                 Symbol::State(Name(name)) => {
-                    codegen_expr(expr, state);
-                    state.code.push(Inst::Set(name.to_string()));
+                    if let Some(name) = get_vm_name(name) {
+                        codegen_expr(expr, state);
+                        state.code.push(Inst::Set(name))
+                    } else {
+                        panic!("unknown VM state name: {}", name);
+                    }
                 }
                 Symbol::Var(_) => todo! {"treat lexical variables"},
             },
@@ -97,6 +121,38 @@ mod codegen_test {
               $px = 1.0
             }
             "##,
-        )
+        );
+    }
+
+    #[test]
+    fn test_codegen_assign_binop_value_to_py() {
+        test_codegen(
+            vec![
+                Inst::Float(1.0),
+                Inst::Float(2.0),
+                Inst::Add,
+                Inst::Set("PosY".to_string()),
+            ],
+            r##"
+            proc main() {
+              $py = 1.0 + 2.0
+            }
+            "##,
+        );
+        test_codegen(
+            vec![
+                Inst::Float(1.0),
+                Inst::Float(2.0),
+                Inst::Float(3.0),
+                Inst::Mul,
+                Inst::Add,
+                Inst::Set("PosY".to_string()),
+            ],
+            r##"
+            proc main() {
+              $py = 1.0 + 2.0 * 3.0
+            }
+            "##,
+        );
     }
 }
