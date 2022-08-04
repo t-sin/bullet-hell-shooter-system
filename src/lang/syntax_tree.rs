@@ -50,7 +50,7 @@ pub enum Body {
     LexicalAssign(Symbol, Expr),
     FnCall(Name, Vec<Expr>),
     If(Expr, Vec<Body>, Vec<Body>),
-    Return(Expr),
+    Return(Option<Expr>),
 }
 
 #[derive(Debug, PartialEq)]
