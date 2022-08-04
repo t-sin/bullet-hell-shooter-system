@@ -1,6 +1,6 @@
 use glam;
 
-mod codegen
+mod codegen;
 mod parse;
 mod syntax_tree;
 mod tokenize;
