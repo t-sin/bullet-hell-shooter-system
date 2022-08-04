@@ -10,7 +10,7 @@ use nom::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Float(f32);
+pub struct Float(pub f32);
 impl Eq for Float {}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
