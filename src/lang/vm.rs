@@ -5,7 +5,7 @@ enum Data {
     Float(f32),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Inst {
     // system words
     Term, // tells now the program reaches the end of program successfully
