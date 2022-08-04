@@ -128,7 +128,7 @@ fn make_symbol(name: &str) -> Option<Symbol> {
         None
     } else {
         let s = if let Some('$') = name.chars().nth(0) {
-            Symbol::State(Name(name))
+            Symbol::State(Name(name[1..].to_string()))
         } else {
             Symbol::Var(Name(name))
         };
@@ -732,10 +732,10 @@ mod parser_test {
                 vec![],
                 vec![
                     Body::Assignment(
-                        Symbol::State(Name("$px".to_string())),
+                        Symbol::State(Name("px".to_string())),
                         Expr::Op2(
                             Op2::Add,
-                            Box::new(Expr::Symbol(Symbol::State(Name("$px".to_string())))),
+                            Box::new(Expr::Symbol(Symbol::State(Name("px".to_string())))),
                             Box::new(Expr::Float(5.0)),
                         ),
                     ),
@@ -760,7 +760,7 @@ mod parser_test {
                 vec![Body::LexicalDefine(
                     Symbol::Var(Name("dp".to_string())),
                     Expr::If(
-                        Box::new(Expr::Symbol(Symbol::State(Name("$input_slow".to_string())))),
+                        Box::new(Expr::Symbol(Symbol::State(Name("input_slow".to_string())))),
                         vec![Body::Expr(Box::new(Expr::Float(4.0)))],
                         vec![Body::Expr(Box::new(Expr::Float(7.0)))],
                     ),
