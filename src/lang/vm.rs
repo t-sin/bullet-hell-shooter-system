@@ -16,6 +16,7 @@ pub enum Inst {
     Set(String),
     // arithmetics
     Add,
+    Mul,
     // comparators
     EqInt,
     EqFloat,
@@ -98,7 +99,7 @@ fn run1(bullet: &mut Bullet) -> Result<Terminated, RuntimeError> {
                 }
             }
 
-            Inst::Add => {
+            Inst::Add | Inst::Mul => {
                 if let Some(a) = bullet.vm.stack.pop() {
                     if let Some(b) = bullet.vm.stack.pop() {
                         let a = match a {
@@ -107,7 +108,11 @@ fn run1(bullet: &mut Bullet) -> Result<Terminated, RuntimeError> {
                         let b = match b {
                             Data::Float(f) => f,
                         };
-                        bullet.vm.stack.push(Data::Float(a + b));
+                        bullet.vm.stack.push(Data::Float(match inst {
+                            Inst::Add => a + b,
+                            Inst::Mul => a * b,
+                            _ => unreachable!(),
+                        }));
 
                         Ok(Terminated(false))
                     } else {
