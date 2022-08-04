@@ -30,7 +30,7 @@ pub enum Delimiter {
     CloseBrace, // '}'
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinOp {
     Asterisk, // '*'
     Slash,    // '/'
@@ -54,6 +54,7 @@ pub enum Token {
     Assign,
     Newline,
     Ident(String),
+    Eof,
 }
 
 pub fn token_type_eq(t1: &Token, t2: &Token) -> bool {
@@ -66,6 +67,7 @@ pub fn token_type_eq(t1: &Token, t2: &Token) -> bool {
         Token::Keyword(kw1) => matches!(t2, Token::Keyword(kw2) if kw1 == kw2),
         Token::Delim(delim1) => matches!(t2, Token::Delim(delim2) if  delim1 == delim2),
         Token::Op(op1) => matches!(t2, Token::Op(op2) if  op1 == op2),
+        Token::Eof => matches!(t2, Token::Eof),
     }
 }
 
@@ -199,6 +201,7 @@ pub fn tokenize(s: &str) -> IResult<&str, Vec<Token>> {
         input = s;
         tokens.push(token);
     }
+    tokens.push(Token::Eof);
 
     Ok((input, tokens))
 }
@@ -273,6 +276,7 @@ mod tokenizer_test {
                 Token::Delim(Box::new(Delimiter::OpenBrace)),
                 Token::Keyword(Box::new(Keyword::Return)),
                 Token::Delim(Box::new(Delimiter::CloseBrace)),
+                Token::Eof,
             ],
             r"fn main() { return }",
         )
@@ -280,6 +284,26 @@ mod tokenizer_test {
 
     #[test]
     fn test_tokenize_complex2() {
+        test_tokenize_1(
+            vec![
+                Token::Keyword(Box::new(Keyword::Let)),
+                Token::Ident("v".to_string()),
+                Token::Assign,
+                Token::Delim(Box::new(Delimiter::OpenParen)),
+                Token::Float(Float(1.0)),
+                Token::Op(Box::new(BinOp::Plus)),
+                Token::Float(Float(2.0)),
+                Token::Delim(Box::new(Delimiter::CloseParen)),
+                Token::Op(Box::new(BinOp::Asterisk)),
+                Token::Float(Float(3.0)),
+                Token::Eof,
+            ],
+            r"let v = (1.0 + 2.0) * 3.0",
+        )
+    }
+
+    #[test]
+    fn test_tokenize_complex3() {
         test_tokenize_1(
             vec![
                 Token::Newline,
@@ -315,6 +339,7 @@ mod tokenizer_test {
                 Token::Newline,
                 Token::Delim(Box::new(Delimiter::CloseBrace)),
                 Token::Newline,
+                Token::Eof,
             ],
             r###"
               fn main() {

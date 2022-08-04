@@ -1,6 +1,6 @@
 use nom::{
     branch::alt,
-    combinator::{all_consuming, map, rest_len},
+    combinator::{all_consuming, map, peek, rest_len},
     multi::many0,
     sequence::tuple,
     Err, IResult,
@@ -101,6 +101,25 @@ fn token_type<'a>(token: Token) -> impl Fn(&'a [Token]) -> CombinatorResult<'a> 
     }
 }
 
+fn token_op<'a>(t: Input<'a>) -> CombinatorResult<'a> {
+    let (t, len) = rest_len(t)?;
+    if len > 0 {
+        if let Token::Op(_) = &t[0] {
+            Ok((&t[1..], &t[0]))
+        } else {
+            Err(Err::Error(ParseError::new(
+                &t[..],
+                ErrorKind::UnexpectedToken(t[0].clone()),
+            )))
+        }
+    } else {
+        Err(Err::Error(ParseError::new(
+            &t[..],
+            ErrorKind::UnexpectedEOF,
+        )))
+    }
+}
+
 fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     match alt((
         token_type(Token::Float(Float(0.0))),
@@ -129,16 +148,7 @@ fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Inpu
 
 // '*', '/', '%'
 fn parse_expr_op_level1<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    match tuple((
-        parse_expr,
-        alt((
-            token(Token::Op(Box::new(BinOp::Asterisk))),
-            token(Token::Op(Box::new(BinOp::Slash))),
-            token(Token::Op(Box::new(BinOp::Percent))),
-        )),
-        parse_expr,
-    ))(t)
-    {
+    match tuple((parse_expr_term, token_op, parse_expr_term))(t) {
         Ok((t, (expr1, Token::Op(op), expr2))) => match **op {
             BinOp::Asterisk => Ok((t, Expr::Op2(Op2::Mul, Box::new(expr1), Box::new(expr2)))),
             BinOp::Slash => Ok((t, Expr::Op2(Op2::Div, Box::new(expr1), Box::new(expr2)))),
@@ -148,48 +158,38 @@ fn parse_expr_op_level1<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
                 ErrorKind::InvalidBinaryOperation,
             ))),
         },
-        _ => Err(Err::Error(ParseError::new(
-            t,
-            ErrorKind::InvalidBinaryOperation,
-        ))),
+        Ok((t, (_, _, _))) => Err(Err::Error(ParseError::new(t, ErrorKind::NeverReachedHere))),
+        Err(err) => Err(err),
     }
 }
 
 // '+', '-'
 fn parse_expr_op_level2<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     match tuple((
-        parse_expr,
-        alt((
-            token(Token::Op(Box::new(BinOp::Plus))),
-            token(Token::Op(Box::new(BinOp::Minus))),
-        )),
-        parse_expr_op_level1,
+        alt((parse_expr_op_level1, parse_expr_term)),
+        token_op,
+        alt((parse_expr_op_level1, parse_expr_term)),
     ))(t)
     {
         Ok((t, (expr1, Token::Op(op), expr2))) => match **op {
             BinOp::Plus => Ok((t, Expr::Op2(Op2::Add, Box::new(expr1), Box::new(expr2)))),
             BinOp::Minus => Ok((t, Expr::Op2(Op2::Sub, Box::new(expr1), Box::new(expr2)))),
-            _ => Err(Err::Error(ParseError::new(t, ErrorKind::NeverReachedHere))),
+            _ => Err(Err::Error(ParseError::new(
+                t,
+                ErrorKind::InvalidBinaryOperation,
+            ))),
         },
-        _ => Err(Err::Error(ParseError::new(
-            t,
-            ErrorKind::InvalidBinaryOperation,
-        ))),
+        Ok((t, (_, _, _))) => Err(Err::Error(ParseError::new(t, ErrorKind::NeverReachedHere))),
+        Err(err) => Err(err),
     }
 }
 
 // '>', '<', '>=', '<=', '=='
 fn parse_expr_op_level3<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     match tuple((
-        parse_expr,
-        alt((
-            token(Token::Op(Box::new(BinOp::Gt))),
-            token(Token::Op(Box::new(BinOp::Lt))),
-            token(Token::Op(Box::new(BinOp::Gte))),
-            token(Token::Op(Box::new(BinOp::Lte))),
-            token(Token::Op(Box::new(BinOp::Eq))),
-        )),
-        parse_expr_op_level2,
+        alt((parse_expr_op_level2, parse_expr_op_level1, parse_expr_term)),
+        token_op,
+        alt((parse_expr_op_level2, parse_expr_op_level1, parse_expr_term)),
     ))(t)
     {
         Ok((t, (expr1, Token::Op(op), expr2))) => match **op {
@@ -198,16 +198,34 @@ fn parse_expr_op_level3<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
             BinOp::Gte => Ok((t, Expr::Op2(Op2::Gte, Box::new(expr1), Box::new(expr2)))),
             BinOp::Lte => Ok((t, Expr::Op2(Op2::Lte, Box::new(expr1), Box::new(expr2)))),
             BinOp::Eq => Ok((t, Expr::Op2(Op2::Eq, Box::new(expr1), Box::new(expr2)))),
-            _ => Err(Err::Error(ParseError::new(t, ErrorKind::NeverReachedHere))),
+            _ => Err(Err::Error(ParseError::new(
+                t,
+                ErrorKind::InvalidBinaryOperation,
+            ))),
         },
-        _ => Err(Err::Error(ParseError::new(t, ErrorKind::NeverReachedHere))),
+        Ok((t, (_, _, _))) => Err(Err::Error(ParseError::new(t, ErrorKind::NeverReachedHere))),
+        Err(err) => Err(err),
     }
 }
 
 fn parse_expr<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    match alt((parse_expr_op_level3, parse_expr_term))(t) {
-        Ok((t, expr)) => Ok((t, expr)),
-        _ => Err(Err::Error(ParseError::new(t, ErrorKind::InvalidExpr))),
+    match tuple((
+        parse_expr_term,
+        peek(alt((
+            // token(Token::Delim(Box::new(Delimiter::OpenParen))),
+            token(Token::Delim(Box::new(Delimiter::CloseParen))),
+            token(Token::Delim(Box::new(Delimiter::CloseBrace))),
+            token(Token::Newline),
+            token(Token::Eof),
+        ))),
+    ))(t)
+    {
+        Ok((t, (expr, _))) => Ok((t, expr)),
+        Err(_) => alt((
+            parse_expr_op_level3,
+            parse_expr_op_level2,
+            parse_expr_op_level1,
+        ))(t),
     }
 }
 
@@ -217,16 +235,24 @@ fn parse_global_assign<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, Parse
         token_type(Token::Ident("".to_string())),
         token(Token::Assign),
         parse_expr,
+        alt((token(Token::Newline), peek(token(Token::Eof)))),
     ))(t)
     {
-        Ok((t, (_, Token::Ident(target_name), _, expr))) => Ok((
+        Ok((t, (_, Token::Ident(target_name), _, expr, _))) => Ok((
             t,
             SyntaxTree::GlobalAssign(Symbol::Var(Name(target_name.to_string())), expr),
         )),
-        _ => Err(Err::Error(ParseError {
+        Ok((t, (_, _, _, _, _))) => Err(Err::Error(ParseError {
             input: t,
             kind: ErrorKind::InvalidGlobalAssign,
         })),
+        Err(err) => {
+            println!("parse_global_assign() = {:?}", err);
+            Err(Err::Error(ParseError {
+                input: t,
+                kind: ErrorKind::InvalidGlobalAssign,
+            }))
+        }
     }
 }
 
@@ -245,8 +271,8 @@ fn parse_1<'a>(t: Input<'a>) -> Parse1Result<'a> {
 type ParseResult<'a> = IResult<Input<'a>, Vec<SyntaxTree>, ParseError<Input<'a>>>;
 
 pub fn parse<'a>(t: Input<'a>) -> ParseResult<'a> {
-    match all_consuming(many0(parse_1))(t) {
-        Ok((rest, stvec)) => Ok((
+    match all_consuming(tuple((many0(parse_1), token(Token::Eof))))(t) {
+        Ok((rest, (stvec, _))) => Ok((
             rest,
             stvec
                 .into_iter()
@@ -322,7 +348,7 @@ mod parser_test {
                     Box::new(Expr::Float(2.0)),
                 ),
             ),
-            "let a = 2.0 + 1.0",
+            "let a = 1.0 + 2.0",
         );
         test_parse_1(
             SyntaxTree::GlobalAssign(
@@ -333,7 +359,7 @@ mod parser_test {
                     Box::new(Expr::Float(2.0)),
                 ),
             ),
-            "let a = 2.0 * 1.0",
+            "let a = 1.0 * 2.0",
         );
     }
 
@@ -344,16 +370,17 @@ mod parser_test {
                 Symbol::Var(Name("a".to_string())),
                 Expr::Op2(
                     Op2::Eq,
+                    Box::new(Expr::Float(1.0)),
                     Box::new(Expr::Op2(
                         Op2::Add,
-                        Box::new(Expr::Float(1.0)),
                         Box::new(Expr::Float(2.0)),
+                        Box::new(Expr::Float(3.0)),
                     )),
-                    Box::new(Expr::Float(3.0)),
                 ),
             ),
             "let a = 1.0 == 2.0 + 3.0",
         );
+
         test_parse_1(
             SyntaxTree::GlobalAssign(
                 Symbol::Var(Name("a".to_string())),
