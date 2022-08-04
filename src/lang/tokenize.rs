@@ -56,6 +56,19 @@ pub enum Token {
     Ident(String),
 }
 
+pub fn token_type_eq(t1: &Token, t2: &Token) -> bool {
+    match t1 {
+        Token::Float(_) => matches!(t2, Token::Float(_)),
+        Token::String(_) => matches!(t2, Token::String(_)),
+        Token::Ident(_) => matches!(t2, Token::Ident(_)),
+        Token::Assign => matches!(t2, Token::Assign),
+        Token::Newline => matches!(t2, Token::Newline),
+        Token::Keyword(kw1) => matches!(t2, Token::Keyword(kw2) if kw1 == kw2),
+        Token::Delim(delim1) => matches!(t2, Token::Delim(delim2) if  delim1 == delim2),
+        Token::Op(op1) => matches!(t2, Token::Op(op2) if  op1 == op2),
+    }
+}
+
 fn tokenize_float(s: &str) -> IResult<&str, Token> {
     let (s, minus) = opt(char('-'))(s)?;
 
