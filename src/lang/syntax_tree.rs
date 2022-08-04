@@ -43,6 +43,7 @@ pub enum Body {
     // Assignment(Symbol, Expr),
     ProcCall(Name, Vec<Expr>),
     Return(Option<Expr>),
+    Expr(Box<Expr>),
 }
 
 #[derive(Debug, PartialEq)]
