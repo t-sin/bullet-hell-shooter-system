@@ -95,7 +95,7 @@ fn tokenize_string(s: &str) -> IResult<&str, Token> {
 }
 
 fn tokenize_delimiter_str(s: &str) -> IResult<&str, &str> {
-    alt((tag("("), tag(")"), tag("{"), tag("}")))(s)
+    alt((tag("("), tag(")"), tag("{"), tag("}"), tag("\n")))(s)
 }
 
 fn tokenize_delimiter(s: &str) -> IResult<&str, Token> {
@@ -346,6 +346,39 @@ mod tokenizer_test {
                 let new_x = $px + 1.0
 
                 if new_x > 420.0 { $px = 420.0 } else { $px = new_x }
+              }
+            "###,
+        )
+    }
+
+    #[test]
+    fn test_tokenize_complex4() {
+        test_tokenize_1(
+            vec![
+                Token::Newline,
+                Token::Keyword(Box::new(Keyword::Fn)),
+                Token::Ident("main".to_string()),
+                Token::Delim(Box::new(Delimiter::OpenParen)),
+                Token::Delim(Box::new(Delimiter::CloseParen)),
+                Token::Delim(Box::new(Delimiter::OpenBrace)),
+                Token::Newline,
+                Token::Keyword(Box::new(Keyword::Let)),
+                Token::Ident("new_x".to_string()),
+                Token::Assign,
+                Token::Ident("$px".to_string()),
+                Token::Op(Box::new(BinOp::Plus)),
+                Token::Float(Float(1.0)),
+                Token::Newline,
+                Token::Keyword(Box::new(Keyword::Return)),
+                Token::Newline,
+                Token::Delim(Box::new(Delimiter::CloseBrace)),
+                Token::Newline,
+                Token::Eof,
+            ],
+            r###"
+              fn main() {
+                let new_x = $px + 1.0
+                return
               }
             "###,
         )
