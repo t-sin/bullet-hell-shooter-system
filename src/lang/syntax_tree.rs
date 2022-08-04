@@ -38,19 +38,20 @@ pub enum Symbol {
 }
 
 #[derive(Debug, PartialEq)]
+pub enum Body {
+    LexicalDefine(Symbol, Expr),
+    // Assignment(Symbol, Expr),
+    ProcCall(Name, Vec<Expr>),
+    Return(Option<Expr>),
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Expr {
     Float(f32),
     String(String),
     Symbol(Symbol),
     Op2(Op2, Box<Expr>, Box<Expr>),
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Body {
-    LexicalDefine(Symbol, Expr),
-    ProcCall(Name, Vec<Expr>),
-    If(Expr, Vec<Body>, Vec<Body>),
-    Return(Option<Expr>),
+    If(Box<Expr>, Vec<Body>, Vec<Body>),
 }
 
 #[derive(Debug, PartialEq)]
