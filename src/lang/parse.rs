@@ -146,9 +146,20 @@ fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Inpu
     }
 }
 
+fn parse_expr_op_level1_subexpr<'a>(
+    t: Input<'a>,
+) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
+    alt((parse_expr_term, parse_expr_paren))(t)
+}
+
 // '*', '/', '%'
 fn parse_expr_op_level1<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    match tuple((parse_expr_term, token_op, parse_expr_term))(t) {
+    match tuple((
+        parse_expr_op_level1_subexpr,
+        token_op,
+        parse_expr_op_level1_subexpr,
+    ))(t)
+    {
         Ok((t, (expr1, Token::Op(op), expr2))) => match **op {
             BinOp::Asterisk => Ok((t, Expr::Op2(Op2::Mul, Box::new(expr1), Box::new(expr2)))),
             BinOp::Slash => Ok((t, Expr::Op2(Op2::Div, Box::new(expr1), Box::new(expr2)))),
@@ -163,12 +174,18 @@ fn parse_expr_op_level1<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
     }
 }
 
+fn parse_expr_op_level2_subexpr<'a>(
+    t: Input<'a>,
+) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
+    alt((parse_expr_op_level1, parse_expr_term, parse_expr_paren))(t)
+}
+
 // '+', '-'
 fn parse_expr_op_level2<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     match tuple((
-        alt((parse_expr_op_level1, parse_expr_term)),
+        parse_expr_op_level2_subexpr,
         token_op,
-        alt((parse_expr_op_level1, parse_expr_term)),
+        parse_expr_op_level2_subexpr,
     ))(t)
     {
         Ok((t, (expr1, Token::Op(op), expr2))) => match **op {
@@ -184,12 +201,23 @@ fn parse_expr_op_level2<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
     }
 }
 
+fn parse_expr_op_level3_subexpr<'a>(
+    t: Input<'a>,
+) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
+    alt((
+        parse_expr_op_level2,
+        parse_expr_op_level1,
+        parse_expr_term,
+        parse_expr_paren,
+    ))(t)
+}
+
 // '>', '<', '>=', '<=', '=='
 fn parse_expr_op_level3<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     match tuple((
-        alt((parse_expr_op_level2, parse_expr_op_level1, parse_expr_term)),
+        parse_expr_op_level3_subexpr,
         token_op,
-        alt((parse_expr_op_level2, parse_expr_op_level1, parse_expr_term)),
+        parse_expr_op_level3_subexpr,
     ))(t)
     {
         Ok((t, (expr1, Token::Op(op), expr2))) => match **op {
@@ -208,7 +236,19 @@ fn parse_expr_op_level3<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
     }
 }
 
-fn parse_expr<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
+fn parse_expr_paren<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
+    match tuple((
+        token(Token::Delim(Box::new(Delimiter::OpenParen))),
+        parse_expr_1,
+        token(Token::Delim(Box::new(Delimiter::CloseParen))),
+    ))(t)
+    {
+        Ok((t, (_, expr, _))) => Ok((t, expr)),
+        Err(err) => Err(err),
+    }
+}
+
+fn parse_expr_1<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     match tuple((
         parse_expr_term,
         peek(alt((
@@ -227,6 +267,10 @@ fn parse_expr<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>
             parse_expr_op_level1,
         ))(t),
     }
+}
+
+fn parse_expr<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
+    alt((parse_expr_1, parse_expr_paren))(t)
 }
 
 fn parse_global_assign<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, ParseError<Input<'a>>> {
@@ -437,6 +481,48 @@ mod parser_test {
                 ),
             ),
             "let a = 1.0 == 2.0 + 3.0 * 4.0",
+        );
+    }
+
+    #[test]
+    fn test_parse_expr_op_precedence_with_paren() {
+        test_parse_1(
+            SyntaxTree::GlobalAssign(
+                Symbol::Var(Name("a".to_string())),
+                Expr::Op2(
+                    Op2::Add,
+                    Box::new(Expr::Op2(
+                        Op2::Eq,
+                        Box::new(Expr::Float(1.0)),
+                        Box::new(Expr::Float(2.0)),
+                    )),
+                    Box::new(Expr::Op2(
+                        Op2::Mul,
+                        Box::new(Expr::Float(3.0)),
+                        Box::new(Expr::Float(4.0)),
+                    )),
+                ),
+            ),
+            "let a = (1.0 == 2.0) + 3.0 * 4.0",
+        );
+        test_parse_1(
+            SyntaxTree::GlobalAssign(
+                Symbol::Var(Name("a".to_string())),
+                Expr::Op2(
+                    Op2::Mul,
+                    Box::new(Expr::Op2(
+                        Op2::Add,
+                        Box::new(Expr::Op2(
+                            Op2::Eq,
+                            Box::new(Expr::Float(1.0)),
+                            Box::new(Expr::Float(2.0)),
+                        )),
+                        Box::new(Expr::Float(3.0)),
+                    )),
+                    Box::new(Expr::Float(4.0)),
+                ),
+            ),
+            "let a = ((1.0 == 2.0) + 3.0) * 4.0",
         );
     }
 }
