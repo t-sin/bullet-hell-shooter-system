@@ -40,7 +40,7 @@ pub enum Symbol {
 #[derive(Debug, PartialEq)]
 pub enum Body {
     LexicalDefine(Symbol, Expr),
-    // Assignment(Symbol, Expr),
+    Assignment(Symbol, Expr),
     ProcCall(Name, Vec<Expr>),
     Return(Option<Expr>),
     Expr(Box<Expr>),

@@ -187,13 +187,48 @@ fn parse_body_block_lexical_define<'a>(
     }
 }
 
+fn parse_body_block_assignment<'a>(
+    t: Input<'a>,
+) -> IResult<Input<'a>, Body, ParseError<Input<'a>>> {
+    match tuple((
+        token_type(Token::Ident("".to_string())),
+        token(Token::Assign),
+        parse_expr,
+        alt((
+            token(Token::Newline),
+            peek(token(Token::Delim(Box::new(Delimiter::CloseBrace)))),
+        )),
+    ))(t)
+    {
+        Ok((t, (Token::Ident(target_name), _, expr, _))) => {
+            if let Some(name) = make_symbol(target_name) {
+                Ok((t, Body::Assignment(name, expr)))
+            } else {
+                Err(Err::Error(ParseError {
+                    input: t,
+                    kind: ErrorKind::EmptyName,
+                }))
+            }
+        }
+        Ok((t, (_, _, _, _))) => Err(Err::Error(ParseError {
+            input: t,
+            kind: ErrorKind::InvalidLexicalDefine,
+        })),
+        Err(err) => Err(Err::Error(ParseError {
+            input: t,
+            kind: ErrorKind::InvalidLexicalDefine,
+        })),
+    }
+}
+
 fn parse_body_block<'a>(t: Input<'a>) -> IResult<Input<'a>, Vec<Body>, ParseError<Input<'a>>> {
     let p = match delimited(
         token(Token::Delim(Box::new(Delimiter::OpenBrace))),
         tuple((
             many0(alt((
                 map(parse_expr, |e| Some(Body::Expr(Box::new(e)))),
-                map(parse_body_block_lexical_define, |la| Some(la)),
+                map(parse_body_block_lexical_define, |ld| Some(ld)),
+                map(parse_body_block_assignment, |a| Some(a)),
                 map(token(Token::Newline), |_| None),
             ))),
             opt(parse_body_block_return),
@@ -696,7 +731,7 @@ mod parser_test {
                 Name("main".to_string()),
                 vec![],
                 vec![
-                    Body::LexicalDefine(
+                    Body::Assignment(
                         Symbol::State(Name("$px".to_string())),
                         Expr::Op2(
                             Op2::Add,
@@ -709,7 +744,7 @@ mod parser_test {
             ),
             r###"
             proc main() {
-              let $px = $px + 5.0
+              $px = $px + 5.0
               return
             }
             "###,
