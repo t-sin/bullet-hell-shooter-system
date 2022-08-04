@@ -16,10 +16,11 @@ pub enum ErrorKind {
     UnexpectedToken(Token),
     UnexpectedEOF,
     CannotParseExpression,
-    InvalidGlobalAssign,
+    InvalidGlobalDefine,
     InvalidExpr,
     InvalidBinaryOperation,
     InvalidDefProc,
+    InvalidLexicalDefine,
     EmptyName,
     NotAnExprTerm,
     NeverReachedHere,
@@ -286,7 +287,7 @@ fn parse_expr<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>
     alt((parse_expr_1, parse_expr_paren))(t)
 }
 
-fn parse_global_assign<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, ParseError<Input<'a>>> {
+fn parse_global_define<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, ParseError<Input<'a>>> {
     match tuple((
         token(Token::Keyword(Box::new(Keyword::Let))),
         token_type(Token::Ident("".to_string())),
@@ -297,7 +298,7 @@ fn parse_global_assign<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, Parse
     {
         Ok((t, (_, Token::Ident(target_name), _, expr, _))) => {
             if let Some(name) = make_symbol(target_name) {
-                Ok((t, SyntaxTree::GlobalAssign(name, expr)))
+                Ok((t, SyntaxTree::GlobalDefine(name, expr)))
             } else {
                 Err(Err::Error(ParseError {
                     input: t,
@@ -307,13 +308,13 @@ fn parse_global_assign<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, Parse
         }
         Ok((t, (_, _, _, _, _))) => Err(Err::Error(ParseError {
             input: t,
-            kind: ErrorKind::InvalidGlobalAssign,
+            kind: ErrorKind::InvalidGlobalDefine,
         })),
         Err(err) => {
             println!("parse_global_assign() = {:?}", err);
             Err(Err::Error(ParseError {
                 input: t,
-                kind: ErrorKind::InvalidGlobalAssign,
+                kind: ErrorKind::InvalidGlobalDefine,
             }))
         }
     }
@@ -345,7 +346,7 @@ fn parse_defproc_body_return<'a>(t: Input<'a>) -> IResult<Input<'a>, Body, Parse
     }
 }
 
-fn parse_defproc_body_lexical_assign<'a>(
+fn parse_defproc_body_lexical_define<'a>(
     t: Input<'a>,
 ) -> IResult<Input<'a>, Body, ParseError<Input<'a>>> {
     match tuple((
@@ -361,7 +362,7 @@ fn parse_defproc_body_lexical_assign<'a>(
     {
         Ok((t, (_, Token::Ident(target_name), _, expr, _))) => {
             if let Some(name) = make_symbol(target_name) {
-                Ok((t, Body::LexicalAssign(name, expr)))
+                Ok((t, Body::LexicalDefine(name, expr)))
             } else {
                 Err(Err::Error(ParseError {
                     input: t,
@@ -371,15 +372,12 @@ fn parse_defproc_body_lexical_assign<'a>(
         }
         Ok((t, (_, _, _, _, _))) => Err(Err::Error(ParseError {
             input: t,
-            kind: ErrorKind::InvalidGlobalAssign,
+            kind: ErrorKind::InvalidLexicalDefine,
         })),
-        Err(err) => {
-            println!("parse_global_assign() = {:?}", err);
-            Err(Err::Error(ParseError {
-                input: t,
-                kind: ErrorKind::InvalidGlobalAssign,
-            }))
-        }
+        Err(err) => Err(Err::Error(ParseError {
+            input: t,
+            kind: ErrorKind::InvalidLexicalDefine,
+        })),
     }
 }
 
@@ -388,7 +386,7 @@ fn parse_defproc_body<'a>(t: Input<'a>) -> IResult<Input<'a>, Vec<Body>, ParseEr
         token(Token::Delim(Box::new(Delimiter::OpenBrace))),
         tuple((
             many0(alt((
-                map(parse_defproc_body_lexical_assign, |la| Some(la)),
+                map(parse_defproc_body_lexical_define, |la| Some(la)),
                 map(token(Token::Newline), |_| None),
             ))),
             opt(parse_defproc_body_return),
@@ -446,7 +444,7 @@ fn parse_1<'a>(t: Input<'a>) -> Parse1Result<'a> {
     let p = alt((
         // value(None, token_type_of(Token::LineComment("".to_string()))),
         map(token(Token::Newline), |_| None),
-        map(parse_global_assign, |ga| Some(ga)),
+        map(parse_global_define, |ga| Some(ga)),
         map(parse_defproc, |f| Some(f)),
     ))(t);
     println!("parse_1() = {:?}", p);
@@ -506,7 +504,7 @@ mod parser_test {
     #[test]
     fn test_parse_global_assign() {
         test_parse_1(
-            SyntaxTree::GlobalAssign(Symbol::Var(Name("a".to_string())), Expr::Float(42.0)),
+            SyntaxTree::GlobalDefine(Symbol::Var(Name("a".to_string())), Expr::Float(42.0)),
             "let a = 42.0",
         );
     }
@@ -514,7 +512,7 @@ mod parser_test {
     #[test]
     fn test_parse_expr_simple_op() {
         test_parse_1(
-            SyntaxTree::GlobalAssign(
+            SyntaxTree::GlobalDefine(
                 Symbol::Var(Name("a".to_string())),
                 Expr::Op2(
                     Op2::Eq,
@@ -525,7 +523,7 @@ mod parser_test {
             "let a = 1.0 == 2.0",
         );
         test_parse_1(
-            SyntaxTree::GlobalAssign(
+            SyntaxTree::GlobalDefine(
                 Symbol::Var(Name("a".to_string())),
                 Expr::Op2(
                     Op2::Add,
@@ -536,7 +534,7 @@ mod parser_test {
             "let a = 1.0 + 2.0",
         );
         test_parse_1(
-            SyntaxTree::GlobalAssign(
+            SyntaxTree::GlobalDefine(
                 Symbol::Var(Name("a".to_string())),
                 Expr::Op2(
                     Op2::Mul,
@@ -551,7 +549,7 @@ mod parser_test {
     #[test]
     fn test_parse_expr_op_precedence() {
         test_parse_1(
-            SyntaxTree::GlobalAssign(
+            SyntaxTree::GlobalDefine(
                 Symbol::Var(Name("a".to_string())),
                 Expr::Op2(
                     Op2::Eq,
@@ -567,7 +565,7 @@ mod parser_test {
         );
 
         test_parse_1(
-            SyntaxTree::GlobalAssign(
+            SyntaxTree::GlobalDefine(
                 Symbol::Var(Name("a".to_string())),
                 Expr::Op2(
                     Op2::Eq,
@@ -586,7 +584,7 @@ mod parser_test {
             "let a = -1.0 * 1.0 == 2.0 + 3.0",
         );
         test_parse_1(
-            SyntaxTree::GlobalAssign(
+            SyntaxTree::GlobalDefine(
                 Symbol::Var(Name("a".to_string())),
                 Expr::Op2(
                     Op2::Eq,
@@ -605,7 +603,7 @@ mod parser_test {
             "let a = 1.0 * 2.0 + 3.0 == 4.0",
         );
         test_parse_1(
-            SyntaxTree::GlobalAssign(
+            SyntaxTree::GlobalDefine(
                 Symbol::Var(Name("a".to_string())),
                 Expr::Op2(
                     Op2::Eq,
@@ -628,7 +626,7 @@ mod parser_test {
     #[test]
     fn test_parse_expr_op_precedence_with_paren() {
         test_parse_1(
-            SyntaxTree::GlobalAssign(
+            SyntaxTree::GlobalDefine(
                 Symbol::Var(Name("a".to_string())),
                 Expr::Op2(
                     Op2::Add,
@@ -647,7 +645,7 @@ mod parser_test {
             "let a = (1.0 == 2.0) + 3.0 * 4.0",
         );
         test_parse_1(
-            SyntaxTree::GlobalAssign(
+            SyntaxTree::GlobalDefine(
                 Symbol::Var(Name("a".to_string())),
                 Expr::Op2(
                     Op2::Mul,
@@ -679,7 +677,7 @@ mod parser_test {
                 Name("main".to_string()),
                 vec![],
                 vec![
-                    Body::LexicalAssign(
+                    Body::LexicalDefine(
                         Symbol::State(Name("$px".to_string())),
                         Expr::Op2(
                             Op2::Add,
@@ -696,6 +694,14 @@ mod parser_test {
               return
             }
             "###,
+        );
+    }
+
+    #[test]
+    fn test_parse_fn_if_expr() {
+        test_parse_1(
+            SyntaxTree::DefProc(Name("main".to_string()), vec![], vec![Body::Return(None)]),
+            "proc main() { let dp = if $bt_slow { 4.0 } else { 7.0 }",
         );
     }
 }
