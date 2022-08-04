@@ -2,6 +2,7 @@
 pub enum Type {
     Float,
     String,
+    //    Bool,
 }
 
 #[derive(Debug, PartialEq)]
@@ -15,10 +16,19 @@ pub struct Arg {
 
 #[derive(Debug, PartialEq)]
 pub enum Op2 {
-    Add,
-    Sub,
+    // precedence level 1
     Mul,
     Div,
+    Mod,
+    // precedence level 2
+    Add,
+    Sub,
+    // precedence level 3
+    Gt,
+    Lt,
+    Gte,
+    Lte,
+    Eq,
 }
 
 #[derive(Debug, PartialEq)]

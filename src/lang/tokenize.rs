@@ -32,11 +32,11 @@ pub enum Delimiter {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BinOp {
-    Plus,     // '+'
-    Minus,    // '-'
     Asterisk, // '*'
     Slash,    // '/'
     Percent,  // '%'
+    Plus,     // '+'
+    Minus,    // '-'
     Gt,       // '>'
     Lt,       // '<'
     Gte,      // '>='

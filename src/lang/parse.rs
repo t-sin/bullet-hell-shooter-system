@@ -18,7 +18,10 @@ pub enum ErrorKind {
     CannotParseExpression,
     InvalidGlobalAssign,
     InvalidExpr,
+    InvalidBinaryOperation,
     EmptyName,
+    NotAnExprTerm,
+    NeverReachedHere,
 }
 
 // Represents parser errors.
@@ -98,7 +101,7 @@ fn token_type<'a>(token: Token) -> impl Fn(&'a [Token]) -> CombinatorResult<'a> 
     }
 }
 
-fn parse_expr<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
+fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     match alt((
         token_type(Token::Float(Float(0.0))),
         token_type(Token::String("".to_string())),
@@ -120,6 +123,90 @@ fn parse_expr<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>
                 Ok((t, expr))
             }
         }
+        _ => Err(Err::Error(ParseError::new(t, ErrorKind::NotAnExprTerm))),
+    }
+}
+
+// '*', '/', '%'
+fn parse_expr_op_level1<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
+    match tuple((
+        parse_expr,
+        alt((
+            token(Token::Op(Box::new(BinOp::Asterisk))),
+            token(Token::Op(Box::new(BinOp::Slash))),
+            token(Token::Op(Box::new(BinOp::Percent))),
+        )),
+        parse_expr,
+    ))(t)
+    {
+        Ok((t, (expr1, Token::Op(op), expr2))) => match **op {
+            BinOp::Asterisk => Ok((t, Expr::Op2(Op2::Mul, Box::new(expr1), Box::new(expr2)))),
+            BinOp::Slash => Ok((t, Expr::Op2(Op2::Div, Box::new(expr1), Box::new(expr2)))),
+            BinOp::Percent => Ok((t, Expr::Op2(Op2::Mod, Box::new(expr1), Box::new(expr2)))),
+            _ => Err(Err::Error(ParseError::new(
+                t,
+                ErrorKind::InvalidBinaryOperation,
+            ))),
+        },
+        _ => Err(Err::Error(ParseError::new(
+            t,
+            ErrorKind::InvalidBinaryOperation,
+        ))),
+    }
+}
+
+// '+', '-'
+fn parse_expr_op_level2<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
+    match tuple((
+        parse_expr,
+        alt((
+            token(Token::Op(Box::new(BinOp::Plus))),
+            token(Token::Op(Box::new(BinOp::Minus))),
+        )),
+        parse_expr_op_level1,
+    ))(t)
+    {
+        Ok((t, (expr1, Token::Op(op), expr2))) => match **op {
+            BinOp::Plus => Ok((t, Expr::Op2(Op2::Add, Box::new(expr1), Box::new(expr2)))),
+            BinOp::Minus => Ok((t, Expr::Op2(Op2::Sub, Box::new(expr1), Box::new(expr2)))),
+            _ => Err(Err::Error(ParseError::new(t, ErrorKind::NeverReachedHere))),
+        },
+        _ => Err(Err::Error(ParseError::new(
+            t,
+            ErrorKind::InvalidBinaryOperation,
+        ))),
+    }
+}
+
+// '>', '<', '>=', '<=', '=='
+fn parse_expr_op_level3<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
+    match tuple((
+        parse_expr,
+        alt((
+            token(Token::Op(Box::new(BinOp::Gt))),
+            token(Token::Op(Box::new(BinOp::Lt))),
+            token(Token::Op(Box::new(BinOp::Gte))),
+            token(Token::Op(Box::new(BinOp::Lte))),
+            token(Token::Op(Box::new(BinOp::Eq))),
+        )),
+        parse_expr_op_level2,
+    ))(t)
+    {
+        Ok((t, (expr1, Token::Op(op), expr2))) => match **op {
+            BinOp::Gt => Ok((t, Expr::Op2(Op2::Gt, Box::new(expr1), Box::new(expr2)))),
+            BinOp::Lt => Ok((t, Expr::Op2(Op2::Lt, Box::new(expr1), Box::new(expr2)))),
+            BinOp::Gte => Ok((t, Expr::Op2(Op2::Gte, Box::new(expr1), Box::new(expr2)))),
+            BinOp::Lte => Ok((t, Expr::Op2(Op2::Lte, Box::new(expr1), Box::new(expr2)))),
+            BinOp::Eq => Ok((t, Expr::Op2(Op2::Eq, Box::new(expr1), Box::new(expr2)))),
+            _ => Err(Err::Error(ParseError::new(t, ErrorKind::NeverReachedHere))),
+        },
+        _ => Err(Err::Error(ParseError::new(t, ErrorKind::NeverReachedHere))),
+    }
+}
+
+fn parse_expr<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
+    match alt((parse_expr_op_level3, parse_expr_term))(t) {
+        Ok((t, expr)) => Ok((t, expr)),
         _ => Err(Err::Error(ParseError::new(t, ErrorKind::InvalidExpr))),
     }
 }
@@ -210,6 +297,81 @@ mod parser_test {
         test_parse_1(
             SyntaxTree::GlobalAssign(Symbol::Var(Name("a".to_string())), Expr::Float(42.0)),
             "let a = 42.0",
+        );
+    }
+
+    #[test]
+    fn test_parse_expr_simple_op() {
+        test_parse_1(
+            SyntaxTree::GlobalAssign(
+                Symbol::Var(Name("a".to_string())),
+                Expr::Op2(
+                    Op2::Eq,
+                    Box::new(Expr::Float(1.0)),
+                    Box::new(Expr::Float(2.0)),
+                ),
+            ),
+            "let a = 1.0 == 2.0",
+        );
+        test_parse_1(
+            SyntaxTree::GlobalAssign(
+                Symbol::Var(Name("a".to_string())),
+                Expr::Op2(
+                    Op2::Add,
+                    Box::new(Expr::Float(1.0)),
+                    Box::new(Expr::Float(2.0)),
+                ),
+            ),
+            "let a = 2.0 + 1.0",
+        );
+        test_parse_1(
+            SyntaxTree::GlobalAssign(
+                Symbol::Var(Name("a".to_string())),
+                Expr::Op2(
+                    Op2::Mul,
+                    Box::new(Expr::Float(1.0)),
+                    Box::new(Expr::Float(2.0)),
+                ),
+            ),
+            "let a = 2.0 * 1.0",
+        );
+    }
+
+    #[test]
+    fn test_parse_expr_op_precedence() {
+        test_parse_1(
+            SyntaxTree::GlobalAssign(
+                Symbol::Var(Name("a".to_string())),
+                Expr::Op2(
+                    Op2::Eq,
+                    Box::new(Expr::Op2(
+                        Op2::Add,
+                        Box::new(Expr::Float(1.0)),
+                        Box::new(Expr::Float(2.0)),
+                    )),
+                    Box::new(Expr::Float(3.0)),
+                ),
+            ),
+            "let a = 1.0 == 2.0 + 3.0",
+        );
+        test_parse_1(
+            SyntaxTree::GlobalAssign(
+                Symbol::Var(Name("a".to_string())),
+                Expr::Op2(
+                    Op2::Eq,
+                    Box::new(Expr::Op2(
+                        Op2::Mul,
+                        Box::new(Expr::Float(-1.0)),
+                        Box::new(Expr::Float(1.0)),
+                    )),
+                    Box::new(Expr::Op2(
+                        Op2::Add,
+                        Box::new(Expr::Float(2.0)),
+                        Box::new(Expr::Float(3.0)),
+                    )),
+                ),
+            ),
+            "let a = -1.0 * 1.0 == 2.0 + 3.0",
         );
     }
 }
