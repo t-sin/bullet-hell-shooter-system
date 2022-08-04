@@ -15,7 +15,7 @@ impl Eq for Float {}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Keyword {
-    Fn,
+    Proc,
     Return,
     If,
     Else,
@@ -110,11 +110,17 @@ fn tokenize_delimiter(s: &str) -> IResult<&str, Token> {
 
 fn tokenize_keyword(s: &str) -> IResult<&str, Token> {
     match tuple((
-        alt((tag("fn"), tag("return"), tag("if"), tag("else"), tag("let"))),
+        alt((
+            tag("proc"),
+            tag("return"),
+            tag("if"),
+            tag("else"),
+            tag("let"),
+        )),
         alt((space1, peek(tokenize_delimiter_str))),
     ))(s)?
     {
-        (s, ("fn", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Fn)))),
+        (s, ("proc", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Proc)))),
         (s, ("return", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Return)))),
         (s, ("if", _)) => Ok((s, Token::Keyword(Box::new(Keyword::If)))),
         (s, ("else", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Else)))),
@@ -269,7 +275,7 @@ mod tokenizer_test {
     fn test_tokenize_complex1() {
         test_tokenize_1(
             vec![
-                Token::Keyword(Box::new(Keyword::Fn)),
+                Token::Keyword(Box::new(Keyword::Proc)),
                 Token::Ident("main".to_string()),
                 Token::Delim(Box::new(Delimiter::OpenParen)),
                 Token::Delim(Box::new(Delimiter::CloseParen)),
@@ -278,7 +284,7 @@ mod tokenizer_test {
                 Token::Delim(Box::new(Delimiter::CloseBrace)),
                 Token::Eof,
             ],
-            r"fn main() { return }",
+            r"proc main() { return }",
         )
     }
 
@@ -307,7 +313,7 @@ mod tokenizer_test {
         test_tokenize_1(
             vec![
                 Token::Newline,
-                Token::Keyword(Box::new(Keyword::Fn)),
+                Token::Keyword(Box::new(Keyword::Proc)),
                 Token::Ident("main".to_string()),
                 Token::Delim(Box::new(Delimiter::OpenParen)),
                 Token::Delim(Box::new(Delimiter::CloseParen)),
@@ -342,7 +348,7 @@ mod tokenizer_test {
                 Token::Eof,
             ],
             r###"
-              fn main() {
+              proc main() {
                 let new_x = $px + 1.0
 
                 if new_x > 420.0 { $px = 420.0 } else { $px = new_x }
@@ -356,7 +362,7 @@ mod tokenizer_test {
         test_tokenize_1(
             vec![
                 Token::Newline,
-                Token::Keyword(Box::new(Keyword::Fn)),
+                Token::Keyword(Box::new(Keyword::Proc)),
                 Token::Ident("main".to_string()),
                 Token::Delim(Box::new(Delimiter::OpenParen)),
                 Token::Delim(Box::new(Delimiter::CloseParen)),
@@ -376,7 +382,7 @@ mod tokenizer_test {
                 Token::Eof,
             ],
             r###"
-              fn main() {
+              proc main() {
                 let new_x = $px + 1.0
                 return
               }

@@ -48,7 +48,7 @@ pub enum Expr {
 #[derive(Debug, PartialEq)]
 pub enum Body {
     LexicalAssign(Symbol, Expr),
-    FnCall(Name, Vec<Expr>),
+    ProcCall(Name, Vec<Expr>),
     If(Expr, Vec<Body>, Vec<Body>),
     Return(Option<Expr>),
 }
@@ -56,5 +56,5 @@ pub enum Body {
 #[derive(Debug, PartialEq)]
 pub enum SyntaxTree {
     GlobalAssign(Symbol, Expr),
-    Defun(Name, Vec<Arg>, Vec<Body>),
+    DefProc(Name, Vec<Arg>, Vec<Body>),
 }

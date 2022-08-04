@@ -19,7 +19,7 @@ pub enum ErrorKind {
     InvalidGlobalAssign,
     InvalidExpr,
     InvalidBinaryOperation,
-    InvalidDefun,
+    InvalidDefProc,
     EmptyName,
     NotAnExprTerm,
     NeverReachedHere,
@@ -319,7 +319,7 @@ fn parse_global_assign<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, Parse
     }
 }
 
-fn parse_defun_args<'a>(t: Input<'a>) -> IResult<Input<'a>, Vec<Arg>, ParseError<Input<'a>>> {
+fn parse_defproc_args<'a>(t: Input<'a>) -> IResult<Input<'a>, Vec<Arg>, ParseError<Input<'a>>> {
     match tuple((
         token(Token::Delim(Box::new(Delimiter::OpenParen))),
         token(Token::Delim(Box::new(Delimiter::CloseParen))),
@@ -330,7 +330,7 @@ fn parse_defun_args<'a>(t: Input<'a>) -> IResult<Input<'a>, Vec<Arg>, ParseError
     }
 }
 
-fn parse_defun_body_return<'a>(t: Input<'a>) -> IResult<Input<'a>, Body, ParseError<Input<'a>>> {
+fn parse_defproc_body_return<'a>(t: Input<'a>) -> IResult<Input<'a>, Body, ParseError<Input<'a>>> {
     match tuple((
         token(Token::Keyword(Box::new(Keyword::Return))),
         opt(parse_expr),
@@ -345,7 +345,7 @@ fn parse_defun_body_return<'a>(t: Input<'a>) -> IResult<Input<'a>, Body, ParseEr
     }
 }
 
-fn parse_defun_body_lexical_assign<'a>(
+fn parse_defproc_body_lexical_assign<'a>(
     t: Input<'a>,
 ) -> IResult<Input<'a>, Body, ParseError<Input<'a>>> {
     match tuple((
@@ -383,15 +383,15 @@ fn parse_defun_body_lexical_assign<'a>(
     }
 }
 
-fn parse_defun_body<'a>(t: Input<'a>) -> IResult<Input<'a>, Vec<Body>, ParseError<Input<'a>>> {
+fn parse_defproc_body<'a>(t: Input<'a>) -> IResult<Input<'a>, Vec<Body>, ParseError<Input<'a>>> {
     let p = match delimited(
         token(Token::Delim(Box::new(Delimiter::OpenBrace))),
         tuple((
             many0(alt((
-                map(parse_defun_body_lexical_assign, |la| Some(la)),
+                map(parse_defproc_body_lexical_assign, |la| Some(la)),
                 map(token(Token::Newline), |_| None),
             ))),
-            opt(parse_defun_body_return),
+            opt(parse_defproc_body_return),
         )),
         token(Token::Delim(Box::new(Delimiter::CloseBrace))),
     )(t)
@@ -414,29 +414,29 @@ fn parse_defun_body<'a>(t: Input<'a>) -> IResult<Input<'a>, Vec<Body>, ParseErro
         )),
         Err(err) => Err(err),
     };
-    println!("parse_defun_body() = {:?}", p);
+    println!("parse_defproc_body() = {:?}", p);
     p
 }
 
-fn parse_defun<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, ParseError<Input<'a>>> {
+fn parse_defproc<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, ParseError<Input<'a>>> {
     let p = match tuple((
-        token(Token::Keyword(Box::new(Keyword::Fn))),
+        token(Token::Keyword(Box::new(Keyword::Proc))),
         token_type(Token::Ident("".to_string())),
-        parse_defun_args,
-        parse_defun_body,
+        parse_defproc_args,
+        parse_defproc_body,
         alt((token(Token::Newline), peek(token(Token::Eof)))),
     ))(t)
     {
         Ok((t, (_, Token::Ident(name), args, body, _))) => {
-            Ok((t, SyntaxTree::Defun(Name(name.to_string()), args, body)))
+            Ok((t, SyntaxTree::DefProc(Name(name.to_string()), args, body)))
         }
         Ok((t, (_, _, _, _, _))) => Err(Err::Error(ParseError {
             input: t,
-            kind: ErrorKind::InvalidDefun,
+            kind: ErrorKind::InvalidDefProc,
         })),
         Err(err) => Err(err),
     };
-    println!("parse_defun() = {:?}", p);
+    println!("parse_defproc() = {:?}", p);
     p
 }
 
@@ -447,7 +447,7 @@ fn parse_1<'a>(t: Input<'a>) -> Parse1Result<'a> {
         // value(None, token_type_of(Token::LineComment("".to_string()))),
         map(token(Token::Newline), |_| None),
         map(parse_global_assign, |ga| Some(ga)),
-        map(parse_defun, |f| Some(f)),
+        map(parse_defproc, |f| Some(f)),
     ))(t);
     println!("parse_1() = {:?}", p);
     p
@@ -670,12 +670,12 @@ mod parser_test {
     #[test]
     fn test_parse_fn_main() {
         test_parse_1(
-            SyntaxTree::Defun(Name("main".to_string()), vec![], vec![Body::Return(None)]),
-            "fn main() { return }",
+            SyntaxTree::DefProc(Name("main".to_string()), vec![], vec![Body::Return(None)]),
+            "proc main() { return }",
         );
 
         test_parse_1(
-            SyntaxTree::Defun(
+            SyntaxTree::DefProc(
                 Name("main".to_string()),
                 vec![],
                 vec![
@@ -691,7 +691,7 @@ mod parser_test {
                 ],
             ),
             r###"
-            fn main() {
+            proc main() {
               let $px = $px + 5.0
               return
             }
