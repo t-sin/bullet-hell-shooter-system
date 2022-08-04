@@ -725,13 +725,13 @@ mod parser_test {
                 vec![Body::LexicalDefine(
                     Symbol::Var(Name("dp".to_string())),
                     Expr::If(
-                        Box::new(Expr::Symbol(Symbol::State(Name("$bt_slow".to_string())))),
+                        Box::new(Expr::Symbol(Symbol::State(Name("$input_slow".to_string())))),
                         vec![Body::Expr(Box::new(Expr::Float(4.0)))],
                         vec![Body::Expr(Box::new(Expr::Float(7.0)))],
                     ),
                 )],
             ),
-            "proc main() { let dp = if $bt_slow { 4.0 } else { 7.0 } }",
+            "proc main() { let dp = if $input_slow { 4.0 } else { 7.0 } }",
         );
     }
 }
