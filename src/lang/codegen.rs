@@ -1,8 +1,7 @@
 use super::{syntax_tree::SyntaxTree, vm::Inst};
 
-pub fn compile(source: &str) -> Vec<Inst> {
+pub fn codegen(source: Vec<SyntaxTree>) -> Vec<Inst> {
     let mut code = Vec::new();
-    let _ast = parse(source);
 
     code
 }
