@@ -601,6 +601,25 @@ mod parser_test {
     }
 
     #[test]
+    fn test_parse_expr_op_multiple_terms() {
+        test_parse_1(
+            SyntaxTree::GlobalDefine(
+                Symbol::Var(Name("a".to_string())),
+                Expr::Op2(
+                    Op2::Add,
+                    Box::new(Expr::Float(1.0)),
+                    Box::new(Expr::Op2(
+                        Op2::Sub,
+                        Box::new(Expr::Float(2.0)),
+                        Box::new(Expr::Float(3.0)),
+                    )),
+                ),
+            ),
+            "let a = 1.0 + 2.0 + 3.0",
+        );
+    }
+
+    #[test]
     fn test_parse_expr_op_precedence() {
         test_parse_1(
             SyntaxTree::GlobalDefine(
