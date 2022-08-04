@@ -1,5 +1,7 @@
 use glam;
 
+mod parse;
+mod syntax_tree;
 mod tokenize;
 
 pub mod vm;
