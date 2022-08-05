@@ -17,7 +17,7 @@ use glam;
 use crate::{
     constant,
     game::Scene,
-    lang::{vm::Inst, Appearance, Bullet, BulletColor, BulletType, Input},
+    lang::{compile, vm::Inst, Appearance, Bullet, BulletColor, BulletType, Input},
 };
 
 mod bullet;
@@ -46,26 +46,25 @@ impl ShooterScene {
             bullets.push(bullet);
         }
 
-        let PLAYER_CODE = [
-            Inst::Get("PosX".to_string()),
-            Inst::Float(1.0),
-            Inst::Add,
-            Inst::Dup,
-            Inst::Float(constant::SHOOTER_PLAYER_AREA_X2),
-            Inst::Lt,
-            Inst::JumpIfZero(1),
-            Inst::Set("PosX".to_string()),
-            Inst::Jump(2),
-            Inst::Float(constant::SHOOTER_PLAYER_AREA_X2),
-            Inst::Set("PosX".to_string()),
-            Inst::Term,
-        ];
+        let player_code = r##"
+            proc main() {
+              $px = $px - if $input_left { if $input_slow { 4.0 } else { 7.0 } } else { 0.0 }
+              $px = $px + if $input_right { if $input_slow { 4.0 } else { 7.0 } } else { 0.0 }
+              $py = $py - if $input_up { if $input_slow { 4.0 } else { 7.0 } } else { 0.0 }
+              $py = $py + if $input_down { if $input_slow { 4.0 } else { 7.0 } } else { 0.0 }
+            }
+            "##
+        .to_string();
+        let compiled_player_code = compile(player_code);
+        let compiled_player_code = compiled_player_code.unwrap();
+        eprintln!("VM code = {:?}", compiled_player_code);
+
         let mut player = Bullet::new(
             200.0,
             400.0,
             Appearance::new(BulletType::Player, BulletColor::White),
         );
-        player.set_code(PLAYER_CODE.clone().into());
+        player.set_code(compiled_player_code.into());
 
         Self {
             player,
@@ -101,28 +100,6 @@ impl EventHandler for ShooterScene {
         if keyboard::is_mod_active(ctx, KeyMods::SHIFT) {
             self.player.input.slow = true;
         }
-
-        // dummy input processing for player
-        // this will be replaced by VM code
-        // {
-        //     let (dx, dy) = if self.player.input.slow {
-        //         (4.0, 4.0)
-        //     } else {
-        //         (9.0, 9.0)
-        //     };
-        //     if self.player.input.right {
-        //         self.player.pos.x += dx
-        //     }
-        //     if self.player.input.left {
-        //         self.player.pos.x += -dx
-        //     }
-        //     if self.player.input.up {
-        //         self.player.pos.y -= dy
-        //     }
-        //     if self.player.input.down {
-        //         self.player.pos.y += dy
-        //     }
-        // }
 
         self.player.update();
 
