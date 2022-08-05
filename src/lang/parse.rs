@@ -18,12 +18,10 @@ pub enum ErrorKind {
     CannotParseExpression,
     InvalidGlobalDefine,
     InvalidExpr,
-    InvalidBinaryOperation,
     InvalidDefProc,
     InvalidLexicalDefine,
     EmptyName,
     NotAnExprTerm,
-    NeverReachedHere,
 }
 
 // Represents parser errors.
@@ -291,7 +289,11 @@ fn parse_expr_op_level1_subexpr<'a>(
 fn parse_expr_op_level1<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     match tuple((
         parse_expr_op_level1_subexpr,
-        token_op,
+        alt((
+            token(Token::Op(Box::new(BinOp::Asterisk))),
+            token(Token::Op(Box::new(BinOp::Slash))),
+            token(Token::Op(Box::new(BinOp::Percent))),
+        )),
         parse_expr_op_level1_subexpr,
     ))(t)
     {
@@ -299,12 +301,9 @@ fn parse_expr_op_level1<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
             BinOp::Asterisk => Ok((t, Expr::Op2(Op2::Mul, Box::new(expr1), Box::new(expr2)))),
             BinOp::Slash => Ok((t, Expr::Op2(Op2::Div, Box::new(expr1), Box::new(expr2)))),
             BinOp::Percent => Ok((t, Expr::Op2(Op2::Mod, Box::new(expr1), Box::new(expr2)))),
-            _ => Err(Err::Error(ParseError::new(
-                t,
-                ErrorKind::InvalidBinaryOperation,
-            ))),
+            _ => unreachable!(),
         },
-        Ok((t, (_, _, _))) => Err(Err::Error(ParseError::new(t, ErrorKind::NeverReachedHere))),
+        Ok((_, (_, _, _))) => unreachable!(),
         Err(err) => Err(err),
     }
 }
@@ -319,19 +318,19 @@ fn parse_expr_op_level2_subexpr<'a>(
 fn parse_expr_op_level2<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     match tuple((
         parse_expr_op_level2_subexpr,
-        token_op,
+        alt((
+            token(Token::Op(Box::new(BinOp::Plus))),
+            token(Token::Op(Box::new(BinOp::Minus))),
+        )),
         parse_expr_op_level2_subexpr,
     ))(t)
     {
         Ok((t, (expr1, Token::Op(op), expr2))) => match **op {
             BinOp::Plus => Ok((t, Expr::Op2(Op2::Add, Box::new(expr1), Box::new(expr2)))),
             BinOp::Minus => Ok((t, Expr::Op2(Op2::Sub, Box::new(expr1), Box::new(expr2)))),
-            _ => Err(Err::Error(ParseError::new(
-                t,
-                ErrorKind::InvalidBinaryOperation,
-            ))),
+            _ => unreachable!(),
         },
-        Ok((t, (_, _, _))) => Err(Err::Error(ParseError::new(t, ErrorKind::NeverReachedHere))),
+        Ok((_, (_, _, _))) => unreachable!(),
         Err(err) => Err(err),
     }
 }
@@ -351,7 +350,13 @@ fn parse_expr_op_level3_subexpr<'a>(
 fn parse_expr_op_level3<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     match tuple((
         parse_expr_op_level3_subexpr,
-        token_op,
+        alt((
+            token(Token::Op(Box::new(BinOp::Gt))),
+            token(Token::Op(Box::new(BinOp::Lt))),
+            token(Token::Op(Box::new(BinOp::Gte))),
+            token(Token::Op(Box::new(BinOp::Lte))),
+            token(Token::Op(Box::new(BinOp::Eq))),
+        )),
         parse_expr_op_level3_subexpr,
     ))(t)
     {
@@ -361,12 +366,9 @@ fn parse_expr_op_level3<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
             BinOp::Gte => Ok((t, Expr::Op2(Op2::Gte, Box::new(expr1), Box::new(expr2)))),
             BinOp::Lte => Ok((t, Expr::Op2(Op2::Lte, Box::new(expr1), Box::new(expr2)))),
             BinOp::Eq => Ok((t, Expr::Op2(Op2::Eq, Box::new(expr1), Box::new(expr2)))),
-            _ => Err(Err::Error(ParseError::new(
-                t,
-                ErrorKind::InvalidBinaryOperation,
-            ))),
+            _ => unreachable!(),
         },
-        Ok((t, (_, _, _))) => Err(Err::Error(ParseError::new(t, ErrorKind::NeverReachedHere))),
+        Ok((_, (_, _, _))) => unreachable!(),
         Err(err) => Err(err),
     }
 }
