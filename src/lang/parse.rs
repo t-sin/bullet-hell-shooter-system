@@ -265,6 +265,18 @@ fn parse_body_block<'a>(t: Input<'a>) -> IResult<Input<'a>, Vec<Body>, ParseErro
     p
 }
 
+fn parse_expr_paren<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
+    match tuple((
+        token(Token::Delim(Box::new(Delimiter::OpenParen))),
+        parse_expr_1,
+        token(Token::Delim(Box::new(Delimiter::CloseParen))),
+    ))(t)
+    {
+        Ok((t, (_, expr, _))) => Ok((t, expr)),
+        Err(err) => Err(err),
+    }
+}
+
 fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     match alt((
         token_type(Token::Float(Float(0.0))),
@@ -282,11 +294,16 @@ fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Inpu
             }
         }
         Ok((_, _)) => unreachable!(),
-        Err(Err::Error(err)) => Err(Err::Error(ParseError::new(
-            t,
-            ErrorKind::NotAnExprTerm,
-            Some(Box::new(err)),
-        ))),
+        Err(Err::Error(err)) => {
+            match peek(token(Token::Delim(Box::new(Delimiter::OpenParen))))(t) {
+                Ok((t, _)) => parse_expr_paren(t),
+                Err(_) => Err(Err::Error(ParseError::new(
+                    t,
+                    ErrorKind::NotAnExprTerm,
+                    Some(Box::new(err)),
+                ))),
+            }
+        }
         Err(err) => Err(err),
     }
 }
@@ -294,7 +311,7 @@ fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Inpu
 fn parse_expr_op_level1_subexpr<'a>(
     t: Input<'a>,
 ) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    alt((parse_expr_term, parse_expr_paren))(t)
+    parse_expr_term(t)
 }
 
 // '*', '/', '%'
@@ -323,7 +340,7 @@ fn parse_expr_op_level1<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
 fn parse_expr_op_level2_subexpr<'a>(
     t: Input<'a>,
 ) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    alt((parse_expr_op_level1, parse_expr_term, parse_expr_paren))(t)
+    alt((parse_expr_op_level1, parse_expr_term))(t)
 }
 
 // '+', '-'
@@ -350,12 +367,7 @@ fn parse_expr_op_level2<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
 fn parse_expr_op_level3_subexpr<'a>(
     t: Input<'a>,
 ) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    alt((
-        parse_expr_op_level2,
-        parse_expr_op_level1,
-        parse_expr_term,
-        parse_expr_paren,
-    ))(t)
+    alt((parse_expr_op_level2, parse_expr_op_level1, parse_expr_term))(t)
 }
 
 // '>', '<', '>=', '<=', '=='
@@ -438,7 +450,7 @@ fn parse_expr_if<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<
 }
 
 fn parse_expr<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    let p = alt((parse_expr_1, parse_expr_paren, parse_expr_if))(t);
+    let p = alt((parse_expr_1, parse_expr_if))(t);
     println!("parse_expr() = {:?}", p);
     p
 }
