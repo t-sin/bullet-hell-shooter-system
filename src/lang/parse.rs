@@ -397,18 +397,6 @@ fn parse_expr_op_level3<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
     }
 }
 
-fn parse_expr_paren<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    match tuple((
-        token(Token::Delim(Box::new(Delimiter::OpenParen))),
-        parse_expr_1,
-        token(Token::Delim(Box::new(Delimiter::CloseParen))),
-    ))(t)
-    {
-        Ok((t, (_, expr, _))) => Ok((t, expr)),
-        Err(err) => Err(err),
-    }
-}
-
 fn parse_expr_1<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     match tuple((
         parse_expr_term,
