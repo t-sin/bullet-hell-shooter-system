@@ -233,9 +233,9 @@ fn parse_body_block<'a>(t: Input<'a>) -> IResult<Input<'a>, Vec<Body>, ParseErro
         token(Token::Delim(Box::new(Delimiter::OpenBrace))),
         tuple((
             many0(alt((
-                map(parse_expr, |e| Some(Body::Expr(Box::new(e)))),
                 map(parse_body_block_lexical_define, |ld| Some(ld)),
                 map(parse_body_block_assignment, |a| Some(a)),
+                map(parse_expr, |e| Some(Body::Expr(Box::new(e)))),
                 map(token(Token::Newline), |_| None),
             ))),
             opt(parse_body_block_return),
