@@ -56,16 +56,24 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
             });
         }
         Expr::If(cond, tru, fls) => {
-            codegen_expr(cond, state);
-
             let mut trustate = CodegenState::new();
             codegen_expr(tru, &mut trustate);
-            state.code.push(Inst::JumpIfZero(trustate.code.len() + 1));
-            state.append(&mut trustate);
-
             let mut flsstate = CodegenState::new();
             codegen_expr(fls, &mut flsstate);
-            state.code.push(Inst::Jump(flsstate.code.len() + 1));
+            let true_len = trustate.code.len();
+            let false_len = flsstate.code.len();
+
+            // conditional parts
+            codegen_expr(cond, state);
+            state.code.push(Inst::Float(1.0));
+            state.code.push(Inst::EqFloat);
+            state.code.push(Inst::JumpIfZero(true_len + 2)); //  true clause + Jump + 1
+
+            // true clause
+            state.append(&mut trustate);
+            state.code.push(Inst::Jump(false_len + 1)); //  false clause + 1
+
+            // false clause
             state.append(&mut flsstate);
         }
     }
