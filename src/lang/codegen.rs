@@ -50,6 +50,7 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
             codegen_expr(expr2, state);
             state.code.push(match op {
                 Op2::Add => Inst::Add,
+                Op2::Sub => Inst::Sub,
                 Op2::Mul => Inst::Mul,
                 _ => todo!("implemented yet!"),
             });
