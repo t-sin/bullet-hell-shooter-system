@@ -7,12 +7,23 @@ fn get_vm_name(sname: &str) -> Option<String> {
     match sname {
         "px" => Some("PosX".to_string()),
         "py" => Some("PosY".to_string()),
+        "input_slow" => Some("InputSlow".to_string()),
         _ => None,
     }
 }
 
 struct CodegenState {
     code: Vec<Inst>,
+}
+
+impl CodegenState {
+    fn new() -> Self {
+        Self { code: Vec::new() }
+    }
+
+    fn append(&mut self, other: &mut Self) {
+        self.code.append(&mut other.code)
+    }
 }
 
 fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
@@ -39,7 +50,17 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
             });
         }
         Expr::If(cond, tru, fls) => {
-            todo!("binary if!!!");
+            codegen_expr(cond, state);
+
+            let mut trustate = CodegenState::new();
+            codegen_expr(tru, &mut trustate);
+            state.code.push(Inst::JumpIfZero(trustate.code.len() + 1));
+            state.append(&mut trustate);
+
+            let mut flsstate = CodegenState::new();
+            codegen_expr(fls, &mut flsstate);
+            state.code.push(Inst::Jump(flsstate.code.len() + 1));
+            state.append(&mut flsstate);
         }
     }
 }
@@ -79,7 +100,7 @@ fn codegen_syntax_trees(stvec: Vec<SyntaxTree>, state: &mut CodegenState) {
 }
 
 pub fn codegen(source: Vec<SyntaxTree>) -> Vec<Inst> {
-    let mut state = CodegenState { code: Vec::new() };
+    let mut state = CodegenState::new();
 
     codegen_syntax_trees(source, &mut state);
 
@@ -151,6 +172,27 @@ mod codegen_test {
             r##"
             proc main() {
               $py = 1.0 + 2.0 * 3.0
+            }
+            "##,
+        );
+    }
+
+    #[test]
+    fn test_codegen_assign_value_with_if_expr() {
+        test_codegen(
+            vec![
+                Inst::Get("PosX".to_string()),
+                Inst::Get("InputSlow".to_string()),
+                Inst::JumpIfZero(2),
+                Inst::Float(4.0),
+                Inst::Jump(2),
+                Inst::Float(7.0),
+                Inst::Add,
+                Inst::Set("PosX".to_string()),
+            ],
+            r##"
+            proc main() {
+              $px = $px + if $input_slow { 4.0 } else { 7.0 }
             }
             "##,
         );
