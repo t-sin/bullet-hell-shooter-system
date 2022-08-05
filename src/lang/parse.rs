@@ -439,15 +439,27 @@ fn parse_expr_op_level3<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
 fn parse_expr_if<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     let p = match tuple((
         token(Token::Keyword(Box::new(Keyword::If))),
-        alt((parse_expr, parse_expr_term)),
-        parse_body_block,
+        parse_expr,
+        delimited(
+            token(Token::Delim(Box::new(Delimiter::OpenBrace))),
+            parse_expr,
+            token(Token::Delim(Box::new(Delimiter::CloseBrace))),
+        ),
         token(Token::Keyword(Box::new(Keyword::Else))),
-        parse_body_block,
+        delimited(
+            token(Token::Delim(Box::new(Delimiter::OpenBrace))),
+            parse_expr,
+            token(Token::Delim(Box::new(Delimiter::CloseBrace))),
+        ),
     ))(t)
     {
         Ok((t, (_, cond_clause, true_clause, _, false_clause))) => Ok((
             t,
-            Expr::If(Box::new(cond_clause), true_clause, false_clause),
+            Expr::If(
+                Box::new(cond_clause),
+                Box::new(true_clause),
+                Box::new(false_clause),
+            ),
         )),
         Err(err) => Err(err),
     };
@@ -456,7 +468,7 @@ fn parse_expr_if<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<
 }
 
 fn parse_expr<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    let p = alt((parse_expr_op_level3, parse_expr_if))(t);
+    let p = parse_expr_op_level3(t);
     println!("parse_expr() = {:?}", p);
     p
 }
@@ -813,8 +825,8 @@ mod parser_test {
                     Symbol::Var(Name("dp".to_string())),
                     Expr::If(
                         Box::new(Expr::Symbol(Symbol::State(Name("input_slow".to_string())))),
-                        vec![Body::Expr(Box::new(Expr::Float(4.0)))],
-                        vec![Body::Expr(Box::new(Expr::Float(7.0)))],
+                        Box::new(Expr::Float(4.0)),
+                        Box::new(Expr::Float(7.0)),
                     ),
                 )],
             ),
@@ -831,8 +843,8 @@ mod parser_test {
                         Box::new(Expr::Symbol(Symbol::State(Name("px".to_string())))),
                         Box::new(Expr::If(
                             Box::new(Expr::Symbol(Symbol::State(Name("input_slow".to_string())))),
-                            vec![Body::Expr(Box::new(Expr::Float(4.0)))],
-                            vec![Body::Expr(Box::new(Expr::Float(7.0)))],
+                            Box::new(Expr::Float(4.0)),
+                            Box::new(Expr::Float(7.0)),
                         )),
                     ),
                 )],

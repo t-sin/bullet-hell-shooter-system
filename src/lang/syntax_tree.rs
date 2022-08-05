@@ -52,7 +52,8 @@ pub enum Expr {
     String(String),
     Symbol(Symbol),
     Op2(Op2, Box<Expr>, Box<Expr>),
-    If(Box<Expr>, Vec<Body>, Vec<Body>),
+    // If(Box<Expr>, Vec<Body>, Vec<Body>),
+    If(Box<Expr>, Box<Expr>, Box<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
