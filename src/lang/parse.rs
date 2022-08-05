@@ -57,6 +57,7 @@ impl<I> nom::error::ParseError<I> for ParseError<I> {
 }
 
 type Input<'a> = &'a [Token];
+type OpTerm<'a> = (&'a BinOp, Expr);
 
 type CombinatorResult<'a> = IResult<Input<'a>, &'a Token, ParseError<Input<'a>>>;
 
@@ -107,11 +108,11 @@ fn token_type<'a>(token: Token) -> impl Fn(&'a [Token]) -> CombinatorResult<'a> 
     }
 }
 
-fn token_op<'a>(t: Input<'a>) -> CombinatorResult<'a> {
+fn token_op<'a>(t: Input<'a>) -> IResult<Input<'a>, &'a BinOp, ParseError<Input<'a>>> {
     let (t, len) = rest_len(t)?;
     if len > 0 {
-        if let Token::Op(_) = &t[0] {
-            Ok((&t[1..], &t[0]))
+        if let Token::Op(op) = &t[0] {
+            Ok((&t[1..], op))
         } else {
             Err(Err::Error(ParseError::new(
                 &t[..],
@@ -267,7 +268,7 @@ fn parse_body_block<'a>(t: Input<'a>) -> IResult<Input<'a>, Vec<Body>, ParseErro
 fn parse_expr_paren<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     match tuple((
         token(Token::Delim(Box::new(Delimiter::OpenParen))),
-        parse_expr_1,
+        parse_expr,
         token(Token::Delim(Box::new(Delimiter::CloseParen))),
     ))(t)
     {
@@ -313,107 +314,119 @@ fn parse_expr_op_level1_subexpr<'a>(
     parse_expr_term(t)
 }
 
+fn parse_expr_op_level1_foldl<'a>(expr1: Expr, opterms: Vec<(&'a Token, Expr)>) -> Expr {
+    match &opterms[..] {
+        [(Token::Op(op), expr2), rest @ ..] => {
+            let op = match **op {
+                BinOp::Asterisk => Op2::Mul,
+                BinOp::Slash => Op2::Div,
+                BinOp::Percent => Op2::Mod,
+                _ => unreachable!(),
+            };
+            let expr = Expr::Op2(op, Box::new(expr1), Box::new(expr2.clone()));
+            parse_expr_op_level1_foldl(expr, rest.to_vec())
+        }
+        [(_, _), ..] => unreachable!(),
+        [] => expr1,
+    }
+}
+
 // '*', '/', '%'
 fn parse_expr_op_level1<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     match tuple((
-        parse_expr_op_level1_subexpr,
-        alt((
-            token(Token::Op(Box::new(BinOp::Asterisk))),
-            token(Token::Op(Box::new(BinOp::Slash))),
-            token(Token::Op(Box::new(BinOp::Percent))),
-        )),
-        parse_expr_op_level1_subexpr,
+        parse_expr_term,
+        many0(tuple((
+            alt((
+                token(Token::Op(Box::new(BinOp::Asterisk))),
+                token(Token::Op(Box::new(BinOp::Slash))),
+                token(Token::Op(Box::new(BinOp::Percent))),
+            )),
+            parse_expr_term,
+        ))),
     ))(t)
     {
-        Ok((t, (expr1, Token::Op(op), expr2))) => match **op {
-            BinOp::Asterisk => Ok((t, Expr::Op2(Op2::Mul, Box::new(expr1), Box::new(expr2)))),
-            BinOp::Slash => Ok((t, Expr::Op2(Op2::Div, Box::new(expr1), Box::new(expr2)))),
-            BinOp::Percent => Ok((t, Expr::Op2(Op2::Mod, Box::new(expr1), Box::new(expr2)))),
-            _ => unreachable!(),
-        },
-        Ok((_, (_, _, _))) => unreachable!(),
+        Ok((t, (term1, vec))) if vec.len() == 0 => Ok((t, term1)),
+        Ok((t, (term1, opterms))) => Ok((t, parse_expr_op_level1_foldl(term1, opterms))),
+        Ok((_, (_, _))) => unreachable!(),
         Err(err) => Err(err),
     }
 }
 
-fn parse_expr_op_level2_subexpr<'a>(
-    t: Input<'a>,
-) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    alt((parse_expr_op_level1, parse_expr_term))(t)
+fn parse_expr_op_level2_foldl<'a>(expr1: Expr, opterms: Vec<(&'a Token, Expr)>) -> Expr {
+    match &opterms[..] {
+        [(Token::Op(op), expr2), rest @ ..] => {
+            let op = match **op {
+                BinOp::Plus => Op2::Add,
+                BinOp::Minus => Op2::Sub,
+                _ => unreachable!(),
+            };
+            let expr = Expr::Op2(op, Box::new(expr1), Box::new(expr2.clone()));
+            parse_expr_op_level2_foldl(expr, rest.to_vec())
+        }
+        [(_, _), ..] => unreachable!(),
+        [] => expr1,
+    }
 }
 
 // '+', '-'
 fn parse_expr_op_level2<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     match tuple((
-        parse_expr_op_level2_subexpr,
-        alt((
-            token(Token::Op(Box::new(BinOp::Plus))),
-            token(Token::Op(Box::new(BinOp::Minus))),
-        )),
-        parse_expr_op_level2_subexpr,
+        parse_expr_op_level1,
+        many0(tuple((
+            alt((
+                token(Token::Op(Box::new(BinOp::Plus))),
+                token(Token::Op(Box::new(BinOp::Minus))),
+            )),
+            parse_expr_op_level1,
+        ))),
     ))(t)
     {
-        Ok((t, (expr1, Token::Op(op), expr2))) => match **op {
-            BinOp::Plus => Ok((t, Expr::Op2(Op2::Add, Box::new(expr1), Box::new(expr2)))),
-            BinOp::Minus => Ok((t, Expr::Op2(Op2::Sub, Box::new(expr1), Box::new(expr2)))),
-            _ => unreachable!(),
-        },
-        Ok((_, (_, _, _))) => unreachable!(),
+        Ok((t, (level1, vec))) if vec.len() == 0 => Ok((t, level1)),
+        Ok((t, (level1, opexprs))) => Ok((t, parse_expr_op_level2_foldl(level1, opexprs))),
+        Ok((_, (_, _))) => unreachable!(),
         Err(err) => Err(err),
     }
 }
 
-fn parse_expr_op_level3_subexpr<'a>(
-    t: Input<'a>,
-) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    alt((parse_expr_op_level2, parse_expr_op_level1, parse_expr_term))(t)
+fn parse_expr_op_level3_foldl<'a>(expr1: Expr, opterms: Vec<(&'a Token, Expr)>) -> Expr {
+    match &opterms[..] {
+        [(Token::Op(op), expr2), rest @ ..] => {
+            let op = match **op {
+                BinOp::Gt => Op2::Gt,
+                BinOp::Lt => Op2::Lt,
+                BinOp::Gte => Op2::Gte,
+                BinOp::Lte => Op2::Lte,
+                BinOp::Eq => Op2::Eq,
+                _ => unreachable!(),
+            };
+            let expr = Expr::Op2(op, Box::new(expr1), Box::new(expr2.clone()));
+            parse_expr_op_level3_foldl(expr, rest.to_vec())
+        }
+        [(_, _), ..] => unreachable!(),
+        [] => expr1,
+    }
 }
 
 // '>', '<', '>=', '<=', '=='
 fn parse_expr_op_level3<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     match tuple((
-        parse_expr_op_level3_subexpr,
-        alt((
-            token(Token::Op(Box::new(BinOp::Gt))),
-            token(Token::Op(Box::new(BinOp::Lt))),
-            token(Token::Op(Box::new(BinOp::Gte))),
-            token(Token::Op(Box::new(BinOp::Lte))),
-            token(Token::Op(Box::new(BinOp::Eq))),
-        )),
-        parse_expr_op_level3_subexpr,
-    ))(t)
-    {
-        Ok((t, (expr1, Token::Op(op), expr2))) => match **op {
-            BinOp::Gt => Ok((t, Expr::Op2(Op2::Gt, Box::new(expr1), Box::new(expr2)))),
-            BinOp::Lt => Ok((t, Expr::Op2(Op2::Lt, Box::new(expr1), Box::new(expr2)))),
-            BinOp::Gte => Ok((t, Expr::Op2(Op2::Gte, Box::new(expr1), Box::new(expr2)))),
-            BinOp::Lte => Ok((t, Expr::Op2(Op2::Lte, Box::new(expr1), Box::new(expr2)))),
-            BinOp::Eq => Ok((t, Expr::Op2(Op2::Eq, Box::new(expr1), Box::new(expr2)))),
-            _ => unreachable!(),
-        },
-        Ok((_, (_, _, _))) => unreachable!(),
-        Err(err) => Err(err),
-    }
-}
-
-fn parse_expr_1<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    match tuple((
-        parse_expr_term,
-        peek(alt((
-            // token(Token::Delim(Box::new(Delimiter::OpenParen))),
-            token(Token::Delim(Box::new(Delimiter::CloseParen))),
-            token(Token::Delim(Box::new(Delimiter::CloseBrace))),
-            token(Token::Newline),
-            token(Token::Eof),
+        parse_expr_op_level2,
+        many0(tuple((
+            alt((
+                token(Token::Op(Box::new(BinOp::Gt))),
+                token(Token::Op(Box::new(BinOp::Lt))),
+                token(Token::Op(Box::new(BinOp::Gte))),
+                token(Token::Op(Box::new(BinOp::Lte))),
+                token(Token::Op(Box::new(BinOp::Eq))),
+            )),
+            parse_expr_op_level2,
         ))),
     ))(t)
     {
-        Ok((t, (expr, _))) => Ok((t, expr)),
-        Err(_) => alt((
-            parse_expr_op_level3,
-            parse_expr_op_level2,
-            parse_expr_op_level1,
-        ))(t),
+        Ok((t, (level2, vec))) if vec.len() == 0 => Ok((t, level2)),
+        Ok((t, (level2, opexprs))) => Ok((t, parse_expr_op_level3_foldl(level2, opexprs))),
+        Ok((_, (_, _))) => unreachable!(),
+        Err(err) => Err(err),
     }
 }
 
@@ -437,7 +450,7 @@ fn parse_expr_if<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<
 }
 
 fn parse_expr<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    let p = alt((parse_expr_1, parse_expr_if))(t);
+    let p = alt((parse_expr_op_level3, parse_expr_if))(t);
     println!("parse_expr() = {:?}", p);
     p
 }
@@ -620,16 +633,16 @@ mod parser_test {
             SyntaxTree::GlobalDefine(
                 Symbol::Var(Name("a".to_string())),
                 Expr::Op2(
-                    Op2::Add,
-                    Box::new(Expr::Float(1.0)),
+                    Op2::Sub,
                     Box::new(Expr::Op2(
-                        Op2::Sub,
+                        Op2::Add,
+                        Box::new(Expr::Float(1.0)),
                         Box::new(Expr::Float(2.0)),
-                        Box::new(Expr::Float(3.0)),
                     )),
+                    Box::new(Expr::Float(3.0)),
                 ),
             ),
-            "let a = 1.0 + 2.0 + 3.0",
+            "let a = 1.0 + 2.0 - 3.0",
         );
     }
 

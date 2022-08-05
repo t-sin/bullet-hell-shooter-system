@@ -1,20 +1,20 @@
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Float,
     String,
     //    Bool,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Name(pub String);
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Arg {
     pub name: Name,
     pub r#type: Type,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Op2 {
     // precedence level 1
     Mul,
@@ -31,13 +31,13 @@ pub enum Op2 {
     Eq,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Symbol {
     Var(Name),   // foo
     State(Name), // $pos_x
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Body {
     LexicalDefine(Symbol, Expr),
     Assignment(Symbol, Expr),
@@ -46,7 +46,7 @@ pub enum Body {
     Expr(Box<Expr>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Float(f32),
     String(String),
@@ -55,7 +55,7 @@ pub enum Expr {
     If(Box<Expr>, Vec<Body>, Vec<Body>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SyntaxTree {
     GlobalDefine(Symbol, Expr),
     DefProc(Name, Vec<Arg>, Vec<Body>),
