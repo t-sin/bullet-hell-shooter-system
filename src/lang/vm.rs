@@ -74,22 +74,38 @@ fn run1(bullet: &mut Bullet) -> Result<Terminated, RuntimeError> {
             Inst::Set(name) => {
                 if let Some(d) = bullet.vm.stack.pop() {
                     match name.as_str() {
-                        "PosX" => {
-                            if let Data::Float(f) = d {
-                                //println!("SetPosX: pos.x <- {}", x);
-                                bullet.pos.x = f;
-                                Ok(Terminated(false))
-                            } else {
-                                Err(RuntimeError::TypeMismatched(d, "float".to_owned()))
+                        "Pos:X" => bullet.vm.stack.push(Data::Float(bullet.pos.x)),
+                        "Pos:Y" => bullet.vm.stack.push(Data::Float(bullet.pos.y)),
+                        "Input:Up" => bullet.vm.stack.push(to_fbool(bullet.input.up)),
+                        "Input:Down" => bullet.vm.stack.push(to_fbool(bullet.input.down)),
+                        "Input:Left" => bullet.vm.stack.push(to_fbool(bullet.input.left)),
+                        "Input:Right" => bullet.vm.stack.push(to_fbool(bullet.input.right)),
+                        "Input:Shot" => bullet.vm.stack.push(to_fbool(bullet.input.shot)),
+                        "Input:Slow" => bullet.vm.stack.push(to_fbool(bullet.input.slow)),
+                        _ => return Err(RuntimeError::UnknownStateName(name.to_owned())),
+                    };
+                    Ok(Terminated(false))
+                }
+                Inst::Set(name) => {
+                    if let Some(d) = bullet.vm.stack.pop() {
+                        match name.as_str() {
+                            "Pos:X" => {
+                                if let Data::Float(f) = d {
+                                    //println!("SetPosX: pos.x <- {}", x);
+                                    bullet.pos.x = f;
+                                    Ok(Terminated(false))
+                                } else {
+                                    Err(RuntimeError::TypeMismatched(d, "float".to_owned()))
+                                }
                             }
-                        }
-                        "PosY" => {
-                            if let Data::Float(f) = d {
-                                //println!("SetPosX: pos.x <- {}", x);
-                                bullet.pos.y = f;
-                                Ok(Terminated(false))
-                            } else {
-                                Err(RuntimeError::TypeMismatched(d, "float".to_owned()))
+                            "Pos:Y" => {
+                                if let Data::Float(f) = d {
+                                    println!("SetPosX: pos.x <- {}", f);
+                                    bullet.pos.y = f;
+                                    Ok(Terminated(false))
+                                } else {
+                                    Err(RuntimeError::TypeMismatched(d, "float".to_owned()))
+                                }
                             }
                         }
                         _ => return Err(RuntimeError::UnknownStateName(name.to_owned())),

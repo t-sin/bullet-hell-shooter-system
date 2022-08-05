@@ -5,9 +5,14 @@ use super::{
 
 fn get_vm_name(sname: &str) -> Option<String> {
     match sname {
-        "px" => Some("PosX".to_string()),
-        "py" => Some("PosY".to_string()),
-        "input_slow" => Some("InputSlow".to_string()),
+        "px" => Some("Pos:X".to_string()),
+        "py" => Some("Pos:Y".to_string()),
+        "input_up" => Some("Input:Up".to_string()),
+        "input_down" => Some("Input:Down".to_string()),
+        "input_left" => Some("Input:Left".to_string()),
+        "input_right" => Some("Input:Right".to_string()),
+        "input_shot" => Some("Input:Shot".to_string()),
+        "input_slow" => Some("Input:Slow".to_string()),
         _ => None,
     }
 }
