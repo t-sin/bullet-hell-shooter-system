@@ -5,8 +5,66 @@ mod parse;
 mod syntax_tree;
 mod tokenize;
 
+mod compiler {
+    use nom::{
+        error::{Error, ErrorKind},
+        Err,
+    };
+
+    use super::{
+        codegen::codegen,
+        parse::{parse, ParserError},
+        tokenize::tokenize,
+        vm::Inst,
+    };
+
+    #[derive(Debug)]
+    pub struct TokenizerError {
+        pub kind: ErrorKind,
+    }
+
+    #[derive(Debug)]
+    pub struct CompileError {
+        pub tokenize: Option<TokenizerError>,
+        pub parse: Option<ParserError>,
+        pub codegen: Option<()>,
+    }
+
+    impl CompileError {
+        fn new(
+            tokenize: Option<TokenizerError>,
+            parse: Option<ParserError>,
+            codegen: Option<()>,
+        ) -> Self {
+            Self {
+                tokenize,
+                parse,
+                codegen,
+            }
+        }
+    }
+
+    pub fn compile(source: String) -> Result<Vec<Inst>, CompileError> {
+        match tokenize(&source[..]) {
+            Ok((_, tokens)) => match parse(&tokens[..]) {
+                Ok((_, stvec)) => Ok(codegen(stvec)),
+                Err(Err::Error(err)) => Err(CompileError::new(None, err.purge_input(), None)),
+                Err(err) => panic!("parse error = {:?}", err),
+            },
+            Err(Err::Error(err)) => Err(CompileError::new(
+                Some(TokenizerError { kind: err.code }),
+                None,
+                None,
+            )),
+            Err(err) => panic!("tokenizer error = {:?}", err),
+        }
+    }
+}
+
 pub mod vm;
 use vm::{Inst, VM};
+
+pub use compiler::{compile, CompileError, TokenizerError};
 
 pub enum BulletType {
     Player,
