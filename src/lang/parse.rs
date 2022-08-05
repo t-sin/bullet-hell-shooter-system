@@ -29,13 +29,15 @@ pub enum ErrorKind {
 pub struct ParseError<I> {
     input: I,
     kind: ErrorKind,
+    parent: Option<Box<ParseError<I>>>,
 }
 
 impl<I> ParseError<I> {
-    fn new(input: I, kind: ErrorKind) -> Self {
+    fn new(input: I, kind: ErrorKind, parent: Option<Box<ParseError<I>>>) -> Self {
         ParseError {
-            input: input,
-            kind: kind,
+            input,
+            kind,
+            parent,
         }
     }
 }
@@ -46,6 +48,7 @@ impl<I> nom::error::ParseError<I> for ParseError<I> {
         ParseError {
             input: input,
             kind: ErrorKind::Nom(kind),
+            parent: None,
         }
     }
 
@@ -69,12 +72,14 @@ fn token<'a>(token: Token) -> impl Fn(Input<'a>) -> CombinatorResult<'a> {
                 Err(Err::Error(ParseError::new(
                     &t[..],
                     ErrorKind::UnexpectedToken(t[0].clone()),
+                    None,
                 )))
             }
         } else {
             Err(Err::Error(ParseError::new(
                 &t[..],
                 ErrorKind::UnexpectedEOF,
+                None,
             )))
         }
     }
@@ -90,12 +95,14 @@ fn token_type<'a>(token: Token) -> impl Fn(&'a [Token]) -> CombinatorResult<'a> 
                 Err(Err::Error(ParseError::new(
                     &t[..],
                     ErrorKind::UnexpectedToken(t[0].clone()),
+                    None,
                 )))
             }
         } else {
             Err(Err::Error(ParseError::new(
                 &t[..],
                 ErrorKind::UnexpectedEOF,
+                None,
             )))
         }
     }
@@ -110,12 +117,14 @@ fn token_op<'a>(t: Input<'a>) -> CombinatorResult<'a> {
             Err(Err::Error(ParseError::new(
                 &t[..],
                 ErrorKind::UnexpectedToken(t[0].clone()),
+                None,
             )))
         }
     } else {
         Err(Err::Error(ParseError::new(
             &t[..],
             ErrorKind::UnexpectedEOF,
+            None,
         )))
     }
 }
@@ -168,20 +177,20 @@ fn parse_body_block_lexical_define<'a>(
             if let Some(name) = make_symbol(target_name) {
                 Ok((t, Body::LexicalDefine(name, expr)))
             } else {
-                Err(Err::Error(ParseError {
-                    input: t,
-                    kind: ErrorKind::EmptyName,
-                }))
+                Err(Err::Error(ParseError::new(t, ErrorKind::EmptyName, None)))
             }
         }
-        Ok((t, (_, _, _, _, _))) => Err(Err::Error(ParseError {
-            input: t,
-            kind: ErrorKind::InvalidLexicalDefine,
-        })),
-        Err(err) => Err(Err::Error(ParseError {
-            input: t,
-            kind: ErrorKind::InvalidLexicalDefine,
-        })),
+        Ok((t, (_, _, _, _, _))) => Err(Err::Error(ParseError::new(
+            t,
+            ErrorKind::InvalidLexicalDefine,
+            None,
+        ))),
+        Err(Err::Error(err)) => Err(Err::Error(ParseError::new(
+            t,
+            ErrorKind::InvalidLexicalDefine,
+            Some(Box::new(err)),
+        ))),
+        Err(err) => Err(err),
     }
 }
 
@@ -202,20 +211,20 @@ fn parse_body_block_assignment<'a>(
             if let Some(name) = make_symbol(target_name) {
                 Ok((t, Body::Assignment(name, expr)))
             } else {
-                Err(Err::Error(ParseError {
-                    input: t,
-                    kind: ErrorKind::EmptyName,
-                }))
+                Err(Err::Error(ParseError::new(t, ErrorKind::EmptyName, None)))
             }
         }
-        Ok((t, (_, _, _, _))) => Err(Err::Error(ParseError {
-            input: t,
-            kind: ErrorKind::InvalidLexicalDefine,
-        })),
-        Err(err) => Err(Err::Error(ParseError {
-            input: t,
-            kind: ErrorKind::InvalidLexicalDefine,
-        })),
+        Ok((t, (_, _, _, _))) => Err(Err::Error(ParseError::new(
+            t,
+            ErrorKind::InvalidLexicalDefine,
+            None,
+        ))),
+        Err(Err::Error(err)) => Err(Err::Error(ParseError::new(
+            t,
+            ErrorKind::InvalidLexicalDefine,
+            Some(Box::new(err)),
+        ))),
+        Err(err) => Err(err),
     }
 }
 
@@ -269,13 +278,16 @@ fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Inpu
             if let Some(name) = make_symbol(name) {
                 Ok((t, Expr::Symbol(name)))
             } else {
-                Err(Err::Error(ParseError {
-                    input: t,
-                    kind: ErrorKind::EmptyName,
-                }))
+                Err(Err::Error(ParseError::new(t, ErrorKind::EmptyName, None)))
             }
         }
-        _ => Err(Err::Error(ParseError::new(t, ErrorKind::NotAnExprTerm))),
+        Ok((_, _)) => unreachable!(),
+        Err(Err::Error(err)) => Err(Err::Error(ParseError::new(
+            t,
+            ErrorKind::NotAnExprTerm,
+            Some(Box::new(err)),
+        ))),
+        Err(err) => Err(err),
     }
 }
 
@@ -444,20 +456,20 @@ fn parse_global_define<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, Parse
             if let Some(name) = make_symbol(target_name) {
                 Ok((t, SyntaxTree::GlobalDefine(name, expr)))
             } else {
-                Err(Err::Error(ParseError {
-                    input: t,
-                    kind: ErrorKind::EmptyName,
-                }))
+                Err(Err::Error(ParseError::new(t, ErrorKind::EmptyName, None)))
             }
         }
-        Ok((t, (_, _, _, _, _))) => Err(Err::Error(ParseError {
-            input: t,
-            kind: ErrorKind::InvalidGlobalDefine,
-        })),
-        Err(err) => Err(Err::Error(ParseError {
-            input: t,
-            kind: ErrorKind::InvalidGlobalDefine,
-        })),
+        Ok((t, (_, _, _, _, _))) => Err(Err::Error(ParseError::new(
+            t,
+            ErrorKind::InvalidGlobalDefine,
+            None,
+        ))),
+        Err(Err::Error(err)) => Err(Err::Error(ParseError::new(
+            t,
+            ErrorKind::InvalidGlobalDefine,
+            Some(Box::new(err)),
+        ))),
+        Err(err) => Err(err),
     }
 }
 
@@ -484,10 +496,11 @@ fn parse_defproc<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, ParseError<
         Ok((t, (_, Token::Ident(name), args, body, _))) => {
             Ok((t, SyntaxTree::DefProc(Name(name.to_string()), args, body)))
         }
-        Ok((t, (_, _, _, _, _))) => Err(Err::Error(ParseError {
-            input: t,
-            kind: ErrorKind::InvalidDefProc,
-        })),
+        Ok((t, (_, _, _, _, _))) => Err(Err::Error(ParseError::new(
+            t,
+            ErrorKind::InvalidDefProc,
+            None,
+        ))),
         Err(err) => Err(err),
     };
     println!("parse_defproc() = {:?}", p);
