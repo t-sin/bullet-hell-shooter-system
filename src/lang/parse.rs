@@ -295,8 +295,14 @@ fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Inpu
         }
         Ok((_, _)) => unreachable!(),
         Err(Err::Error(err)) => {
-            match peek(token(Token::Delim(Box::new(Delimiter::OpenParen))))(t) {
-                Ok((t, _)) => parse_expr_paren(t),
+            match peek(alt((
+                token(Token::Delim(Box::new(Delimiter::OpenParen))),
+                token(Token::Keyword(Box::new(Keyword::If))),
+            )))(t)
+            {
+                Ok((t, Token::Delim(_))) => parse_expr_paren(t),
+                Ok((t, Token::Keyword(_))) => parse_expr_if(t),
+                Ok((t, _)) => unreachable!(),
                 Err(_) => Err(Err::Error(ParseError::new(
                     t,
                     ErrorKind::NotAnExprTerm,
@@ -813,6 +819,29 @@ mod parser_test {
                 )],
             ),
             "proc main() { let dp = if $input_slow { 4.0 } else { 7.0 } }",
+        );
+        test_parse_1(
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                vec![],
+                vec![Body::Assignment(
+                    Symbol::State(Name("px".to_string())),
+                    Expr::Op2(
+                        Op2::Add,
+                        Box::new(Expr::Symbol(Symbol::State(Name("px".to_string())))),
+                        Box::new(Expr::If(
+                            Box::new(Expr::Symbol(Symbol::State(Name("input_slow".to_string())))),
+                            vec![Body::Expr(Box::new(Expr::Float(4.0)))],
+                            vec![Body::Expr(Box::new(Expr::Float(7.0)))],
+                        )),
+                    ),
+                )],
+            ),
+            r##"
+            proc main() {
+              $px = $px + if $input_slow { 4.0 } else { 7.0 }
+            }
+            "##,
         );
     }
 }
