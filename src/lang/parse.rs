@@ -43,7 +43,6 @@ impl<I> ParseError<I> {
 }
 
 impl<I> nom::error::ParseError<I> for ParseError<I> {
-    /// converts nom::error::ErrorKind to mmmm's ParseError
     fn from_error_kind(input: I, kind: nom::error::ErrorKind) -> Self {
         ParseError {
             input: input,
