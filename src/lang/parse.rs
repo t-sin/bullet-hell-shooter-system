@@ -10,7 +10,7 @@ use super::syntax_tree::*;
 use super::tokenize::*;
 
 // ErrorKinds for this bullet-hell lang.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ErrorKind {
     Nom(nom::error::ErrorKind),
     UnexpectedToken(Token),
@@ -27,9 +27,15 @@ pub enum ErrorKind {
 // Represents parser errors.
 #[derive(Debug)]
 pub struct ParseError<I> {
-    input: I,
-    kind: ErrorKind,
-    parent: Option<Box<ParseError<I>>>,
+    pub input: I,
+    pub kind: ErrorKind,
+    pub parent: Option<Box<ParseError<I>>>,
+}
+
+#[derive(Debug)]
+pub struct ParserError {
+    pub kind: ErrorKind,
+    pub parent: Option<Box<ParserError>>,
 }
 
 impl<I> ParseError<I> {
@@ -39,6 +45,19 @@ impl<I> ParseError<I> {
             kind,
             parent,
         }
+    }
+
+    pub fn purge_input(&self) -> Option<ParserError> {
+        let pe = ParserError {
+            kind: self.kind.clone(),
+            parent: if let Some(p) = &self.parent {
+                Some(Box::new((*p).purge_input().unwrap()))
+            } else {
+                None
+            },
+        };
+
+        Some(pe)
     }
 }
 
@@ -56,7 +75,7 @@ impl<I> nom::error::ParseError<I> for ParseError<I> {
     }
 }
 
-type Input<'a> = &'a [Token];
+pub type Input<'a> = &'a [Token];
 type OpTerm<'a> = (&'a BinOp, Expr);
 
 type CombinatorResult<'a> = IResult<Input<'a>, &'a Token, ParseError<Input<'a>>>;
