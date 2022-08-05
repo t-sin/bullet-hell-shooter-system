@@ -103,6 +103,7 @@ pub fn codegen(source: Vec<SyntaxTree>) -> Vec<Inst> {
     let mut state = CodegenState::new();
 
     codegen_syntax_trees(source, &mut state);
+    state.code.push(Inst::Term);
 
     state.code
 }
@@ -136,7 +137,7 @@ mod codegen_test {
     #[test]
     fn test_codegen_assign_value_to_px() {
         test_codegen(
-            vec![Inst::Float(1.0), Inst::Set("PosX".to_string())],
+            vec![Inst::Float(1.0), Inst::Set("PosX".to_string()), Inst::Term],
             r##"
             proc main() {
               $px = 1.0
@@ -153,6 +154,7 @@ mod codegen_test {
                 Inst::Float(2.0),
                 Inst::Add,
                 Inst::Set("PosY".to_string()),
+                Inst::Term,
             ],
             r##"
             proc main() {
@@ -168,6 +170,7 @@ mod codegen_test {
                 Inst::Mul,
                 Inst::Add,
                 Inst::Set("PosY".to_string()),
+                Inst::Term,
             ],
             r##"
             proc main() {
@@ -189,6 +192,7 @@ mod codegen_test {
                 Inst::Float(7.0),
                 Inst::Add,
                 Inst::Set("PosX".to_string()),
+                Inst::Term,
             ],
             r##"
             proc main() {
