@@ -1,0 +1,11 @@
+[package]
+name = "lang_vm"
+version = "0.1.0"
+description = "A virtual machine for the Bullet lang"
+edition = "2021"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+lang_component = { path = "../component" }

@@ -3,7 +3,6 @@ use glam;
 mod codegen;
 mod parse;
 mod tokenize;
-pub mod vm;
 
 mod compiler {
     use nom::{
@@ -63,9 +62,9 @@ mod compiler {
 }
 
 use lang_component::vm::Inst;
+use lang_vm::{State, VM};
 
 pub use compiler::{compile, CompileError, TokenizerError};
-use vm::VM;
 
 pub enum BulletType {
     Player,
@@ -109,10 +108,48 @@ impl Default for Input {
     }
 }
 
-pub struct Bullet {
+pub struct BulletState {
     pub enabled: bool,
     pub input: Input,
     pub pos: glam::Vec2,
+}
+
+impl State for BulletState {
+    fn pos_x(&self) -> f32 {
+        self.pos.x
+    }
+    fn set_pos_x(&mut self, f: f32) {
+        self.pos.x = f;
+    }
+    fn pos_y(&self) -> f32 {
+        self.pos.y
+    }
+    fn set_pos_y(&mut self, f: f32) {
+        self.pos.y = f;
+    }
+
+    fn input_up(&self) -> bool {
+        self.input.up
+    }
+    fn input_down(&self) -> bool {
+        self.input.down
+    }
+    fn input_left(&self) -> bool {
+        self.input.left
+    }
+    fn input_right(&self) -> bool {
+        self.input.right
+    }
+    fn input_shot(&self) -> bool {
+        self.input.shot
+    }
+    fn input_slow(&self) -> bool {
+        self.input.slow
+    }
+}
+
+pub struct Bullet {
+    pub state: BulletState,
     vm: VM,
     pub appearance: Appearance,
 }
@@ -120,9 +157,11 @@ pub struct Bullet {
 impl Bullet {
     pub fn new(x: f32, y: f32, a: Appearance) -> Self {
         Self {
-            enabled: false,
-            input: Input::default(),
-            pos: glam::vec2(x, y),
+            state: BulletState {
+                enabled: false,
+                input: Input::default(),
+                pos: glam::vec2(x, y),
+            },
             vm: VM::new(Vec::new()),
             appearance: a,
         }
@@ -133,7 +172,7 @@ impl Bullet {
     }
 
     pub fn update(&mut self) {
-        if let Err(err) = VM::run(self) {
+        if let Err(err) = VM::run(&mut self.vm, &mut self.state) {
             println!("VM runtime error: {:?}", err);
         }
     }

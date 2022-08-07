@@ -83,30 +83,30 @@ impl Scene for ShooterScene {
 
 impl EventHandler for ShooterScene {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
-        self.player.input = Input::default();
+        self.player.state.input = Input::default();
         if keyboard::is_key_pressed(ctx, KeyCode::Right) {
-            self.player.input.right = true;
+            self.player.state.input.right = true;
         }
         if keyboard::is_key_pressed(ctx, KeyCode::Left) {
-            self.player.input.left = true;
+            self.player.state.input.left = true;
         }
         if keyboard::is_key_pressed(ctx, KeyCode::Up) {
-            self.player.input.up = true;
+            self.player.state.input.up = true;
         }
         if keyboard::is_key_pressed(ctx, KeyCode::Down) {
-            self.player.input.down = true;
+            self.player.state.input.down = true;
         }
         if keyboard::is_key_pressed(ctx, KeyCode::Z) {
-            self.player.input.shot = true;
+            self.player.state.input.shot = true;
         }
         if keyboard::is_mod_active(ctx, KeyMods::SHIFT) {
-            self.player.input.slow = true;
+            self.player.state.input.slow = true;
         }
 
         self.player.update();
 
         for bullet in self.bullets.iter_mut() {
-            if bullet.enabled {
+            if bullet.state.enabled {
                 bullet.update();
             }
         }
@@ -155,7 +155,7 @@ impl EventHandler for ShooterScene {
         self.player.draw(ctx)?;
 
         for bullet in self.bullets.iter() {
-            if bullet.enabled {
+            if bullet.state.enabled {
                 bullet.draw(ctx)?;
             }
         }

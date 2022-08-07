@@ -23,7 +23,7 @@ impl SceneDrawable for Bullet {
         let color = match self.appearance.color {
             BulletColor::White => Color::from_rgb(255, 255, 255),
         };
-        let pos = self.pos;
+        let pos = self.state.pos;
         let param = DrawParam::default()
             .color(color)
             .offset([-constant::SHOOTER_OFFSET_X, -constant::SHOOTER_OFFSET_Y]);

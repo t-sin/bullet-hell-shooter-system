@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 lang_component = { path = "./lang/component" }
+lang_vm = { path = "./lang/vm" }
 
 ggez = "0.7.0"
 glam = "0.20.5"
