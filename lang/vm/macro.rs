@@ -11,4 +11,15 @@ macro_rules! float_data {
     };
 }
 
+macro_rules! stack_pop {
+    ($stack:expr) => {
+        if let Some(d) = $stack.pop() {
+            d
+        } else {
+            return Err(RuntimeError::StackUnderflow);
+        }
+    };
+}
+
 pub(crate) use float_data;
+pub(crate) use stack_pop;

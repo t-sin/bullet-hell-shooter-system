@@ -95,176 +95,134 @@ impl VM {
                         Ok(Terminated(false))
                     }
                     Inst::Set(name) => {
-                        if let Some(d) = self.stack.pop() {
-                            match name.as_str() {
-                                "Pos:X" => {
-                                    #[allow(irrefutable_let_patterns)]
-                                    let x = float_data!(d);
-                                    //println!("SetPosX: pos.x <- {}", x);
-                                    state.set_pos_x(x);
-                                    Ok(Terminated(false))
-                                }
-                                "Pos:Y" => {
-                                    #[allow(irrefutable_let_patterns)]
-                                    let y = float_data!(d);
-                                    println!("SetPosX: pos.x <- {}", y);
-                                    state.set_pos_y(y);
-                                    Ok(Terminated(false))
-                                }
-                                _ => return Err(RuntimeError::UnknownStateName(name.to_owned())),
+                        let d = stack_pop!(self.stack);
+                        match name.as_str() {
+                            "Pos:X" => {
+                                #[allow(irrefutable_let_patterns)]
+                                let x = float_data!(d);
+                                //println!("SetPosX: pos.x <- {}", x);
+                                state.set_pos_x(x);
+                                Ok(Terminated(false))
                             }
-                        } else {
-                            Err(RuntimeError::StackUnderflow)
+                            "Pos:Y" => {
+                                #[allow(irrefutable_let_patterns)]
+                                let y = float_data!(d);
+                                println!("SetPosX: pos.x <- {}", y);
+                                state.set_pos_y(y);
+                                Ok(Terminated(false))
+                            }
+                            _ => return Err(RuntimeError::UnknownStateName(name.to_owned())),
                         }
                     }
                     Inst::Fire(blang_name) => {
-                        if let Some(y) = self.stack.pop() {
-                            if let Some(x) = self.stack.pop() {
-                                #[allow(irrefutable_let_patterns)]
-                                let x = float_data!(x);
-                                #[allow(irrefutable_let_patterns)]
-                                let y = float_data!(y);
-                                ops_queue.push_back(Operation::PutBullet(
-                                    x,
-                                    y,
-                                    blang_name.to_string(),
-                                    BulletType::Bullet1,
-                                    BulletColor::White,
-                                ));
-                                Ok(Terminated(false))
-                            } else {
-                                Err(RuntimeError::StackUnderflow)
-                            }
-                        } else {
-                            Err(RuntimeError::StackUnderflow)
-                        }
+                        let y = stack_pop!(self.stack);
+                        let x = stack_pop!(self.stack);
+                        #[allow(irrefutable_let_patterns)]
+                        let x = float_data!(x);
+                        #[allow(irrefutable_let_patterns)]
+                        let y = float_data!(y);
+                        ops_queue.push_back(Operation::PutBullet(
+                            x,
+                            y,
+                            blang_name.to_string(),
+                            BulletType::Bullet1,
+                            BulletColor::White,
+                        ));
+                        Ok(Terminated(false))
                     }
                     Inst::Add | Inst::Sub | Inst::Mul => {
-                        if let Some(b) = self.stack.pop() {
-                            if let Some(a) = self.stack.pop() {
-                                #[allow(irrefutable_let_patterns)]
-                                let a = float_data!(a);
-                                #[allow(irrefutable_let_patterns)]
-                                let b = float_data!(b);
-                                self.stack.push(Data::Float(match inst {
-                                    Inst::Add => a + b,
-                                    Inst::Sub => a - b,
-                                    Inst::Mul => a * b,
-                                    _ => unreachable!(),
-                                }));
+                        let b = stack_pop!(self.stack);
+                        let a = stack_pop!(self.stack);
+                        #[allow(irrefutable_let_patterns)]
+                        let a = float_data!(a);
+                        #[allow(irrefutable_let_patterns)]
+                        let b = float_data!(b);
+                        self.stack.push(Data::Float(match inst {
+                            Inst::Add => a + b,
+                            Inst::Sub => a - b,
+                            Inst::Mul => a * b,
+                            _ => unreachable!(),
+                        }));
 
-                                Ok(Terminated(false))
-                            } else {
-                                Err(RuntimeError::StackUnderflow)
-                            }
-                        } else {
-                            Err(RuntimeError::StackUnderflow)
-                        }
+                        Ok(Terminated(false))
                     }
                     Inst::EqInt => {
-                        if let Some(a) = self.stack.pop() {
-                            if let Some(b) = self.stack.pop() {
-                                #[allow(irrefutable_let_patterns)]
-                                let a = float_data!(a);
-                                #[allow(irrefutable_let_patterns)]
-                                let b = float_data!(b);
+                        let b = stack_pop!(self.stack);
+                        let a = stack_pop!(self.stack);
+                        #[allow(irrefutable_let_patterns)]
+                        let a = float_data!(a);
+                        #[allow(irrefutable_let_patterns)]
+                        let b = float_data!(b);
 
-                                if a == b {
-                                    self.stack.push(Data::Float(1.0));
-                                } else {
-                                    self.stack.push(Data::Float(0.0));
-                                }
-
-                                Ok(Terminated(false))
-                            } else {
-                                Err(RuntimeError::StackUnderflow)
-                            }
+                        if a == b {
+                            self.stack.push(Data::Float(1.0));
                         } else {
-                            Err(RuntimeError::StackUnderflow)
+                            self.stack.push(Data::Float(0.0));
                         }
+
+                        Ok(Terminated(false))
                     }
                     Inst::EqFloat => {
-                        if let Some(a) = self.stack.pop() {
-                            if let Some(b) = self.stack.pop() {
-                                #[allow(irrefutable_let_patterns)]
-                                let a = float_data!(a);
-                                #[allow(irrefutable_let_patterns)]
-                                let b = float_data!(b);
+                        let b = stack_pop!(self.stack);
+                        let a = stack_pop!(self.stack);
+                        #[allow(irrefutable_let_patterns)]
+                        let a = float_data!(a);
+                        #[allow(irrefutable_let_patterns)]
+                        let b = float_data!(b);
 
-                                if a == b {
-                                    self.stack.push(Data::Float(1.0));
-                                } else {
-                                    self.stack.push(Data::Float(0.0));
-                                }
-
-                                Ok(Terminated(false))
-                            } else {
-                                Err(RuntimeError::StackUnderflow)
-                            }
+                        if a == b {
+                            self.stack.push(Data::Float(1.0));
                         } else {
-                            Err(RuntimeError::StackUnderflow)
+                            self.stack.push(Data::Float(0.0));
                         }
+
+                        Ok(Terminated(false))
                     }
                     Inst::Lt => {
-                        if let Some(a) = self.stack.pop() {
-                            if let Some(b) = self.stack.pop() {
-                                #[allow(irrefutable_let_patterns)]
-                                let a = float_data!(a);
-                                #[allow(irrefutable_let_patterns)]
-                                let b = float_data!(b);
+                        let b = stack_pop!(self.stack);
+                        let a = stack_pop!(self.stack);
+                        #[allow(irrefutable_let_patterns)]
+                        let a = float_data!(a);
+                        #[allow(irrefutable_let_patterns)]
+                        let b = float_data!(b);
 
-                                if a > b {
-                                    self.stack.push(Data::Float(1.0));
-                                } else {
-                                    self.stack.push(Data::Float(0.0));
-                                }
-
-                                Ok(Terminated(false))
-                            } else {
-                                Err(RuntimeError::StackUnderflow)
-                            }
+                        if a > b {
+                            self.stack.push(Data::Float(1.0));
                         } else {
-                            Err(RuntimeError::StackUnderflow)
+                            self.stack.push(Data::Float(0.0));
                         }
+
+                        Ok(Terminated(false))
                     }
                     Inst::Not => {
-                        if let Some(x) = self.stack.pop() {
-                            #[allow(irrefutable_let_patterns)]
-                            let x = float_data!(x);
-                            if x == 0.0 {
-                                self.stack.push(Data::Float(1.0));
-                            } else {
-                                self.stack.push(Data::Float(0.0));
-                            }
-                            Ok(Terminated(false))
+                        let x = stack_pop!(self.stack);
+                        #[allow(irrefutable_let_patterns)]
+                        let x = float_data!(x);
+                        if x == 0.0 {
+                            self.stack.push(Data::Float(1.0));
                         } else {
-                            Err(RuntimeError::StackUnderflow)
+                            self.stack.push(Data::Float(0.0));
                         }
+                        Ok(Terminated(false))
                     }
                     Inst::Dup => {
-                        if let Some(x) = self.stack.pop() {
-                            self.stack.push(x.clone());
-                            self.stack.push(x);
-                            Ok(Terminated(false))
-                        } else {
-                            Err(RuntimeError::StackUnderflow)
-                        }
+                        let x = stack_pop!(self.stack);
+                        self.stack.push(x.clone());
+                        self.stack.push(x);
+                        Ok(Terminated(false))
                     }
                     Inst::Jump(offset) => {
                         self.pc += offset - 1;
                         Ok(Terminated(false))
                     }
                     Inst::JumpIfZero(offset) => {
-                        if let Some(y) = self.stack.pop() {
-                            #[allow(irrefutable_let_patterns)]
-                            let y = float_data!(y);
-                            if y == 0.0 {
-                                self.pc += offset - 1;
-                            }
-                            Ok(Terminated(false))
-                        } else {
-                            Err(RuntimeError::StackUnderflow)
+                        let b = stack_pop!(self.stack);
+                        #[allow(irrefutable_let_patterns)]
+                        let b = float_data!(b);
+                        if b == 0.0 {
+                            self.pc += offset - 1;
                         }
+                        Ok(Terminated(false))
                     }
                 }
             }
