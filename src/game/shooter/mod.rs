@@ -17,13 +17,11 @@ use glam;
 use lang_compiler::compile;
 use lang_component::vm::Inst;
 
-use crate::{
-    constant,
-    game::Scene,
-    lang::{Appearance, Bullet, BulletColor, BulletType, Input},
-};
+use crate::{constant, game::Scene};
 
 mod bullet;
+
+use bullet::{Appearance, Bullet, BulletColor, BulletType, Input};
 
 trait SceneDrawable {
     fn draw(&self, ctx: &mut Context) -> GameResult<()>;
