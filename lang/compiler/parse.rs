@@ -343,7 +343,6 @@ fn parse_expr_op_level1<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
     {
         Ok((t, (term1, vec))) if vec.len() == 0 => Ok((t, term1)),
         Ok((t, (term1, opterms))) => Ok((t, parse_expr_op_level1_foldl(term1, opterms))),
-        Ok((_, (_, _))) => unreachable!(),
         Err(err) => Err(err),
     }
 }
@@ -379,7 +378,6 @@ fn parse_expr_op_level2<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
     {
         Ok((t, (level1, vec))) if vec.len() == 0 => Ok((t, level1)),
         Ok((t, (level1, opexprs))) => Ok((t, parse_expr_op_level2_foldl(level1, opexprs))),
-        Ok((_, (_, _))) => unreachable!(),
         Err(err) => Err(err),
     }
 }
@@ -421,7 +419,6 @@ fn parse_expr_op_level3<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
     {
         Ok((t, (level2, vec))) if vec.len() == 0 => Ok((t, level2)),
         Ok((t, (level2, opexprs))) => Ok((t, parse_expr_op_level3_foldl(level2, opexprs))),
-        Ok((_, (_, _))) => unreachable!(),
         Err(err) => Err(err),
     }
 }
