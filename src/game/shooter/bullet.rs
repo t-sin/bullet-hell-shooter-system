@@ -12,9 +12,8 @@ use ggez::{
 };
 use glam;
 
-use lang_compiler::{compile, CompileError, TokenizerError};
 use lang_component::vm::Inst;
-use lang_vm::{State, VM};
+use lang_vm::{ReadState, WriteState, VM};
 
 use super::SceneDrawable;
 use crate::constant;
@@ -39,7 +38,7 @@ impl Appearance {
     }
 }
 
-pub struct Input {
+pub struct InputState {
     pub up: bool,
     pub down: bool,
     pub left: bool,
@@ -48,7 +47,7 @@ pub struct Input {
     pub slow: bool,
 }
 
-impl Default for Input {
+impl Default for InputState {
     fn default() -> Self {
         Self {
             up: false,
@@ -63,24 +62,17 @@ impl Default for Input {
 
 pub struct BulletState {
     pub enabled: bool,
-    pub input: Input,
+    pub input: InputState,
     pub pos: glam::Vec2,
 }
 
-impl State for BulletState {
+impl ReadState for BulletState {
     fn pos_x(&self) -> f32 {
         self.pos.x
-    }
-    fn set_pos_x(&mut self, f: f32) {
-        self.pos.x = f;
     }
     fn pos_y(&self) -> f32 {
         self.pos.y
     }
-    fn set_pos_y(&mut self, f: f32) {
-        self.pos.y = f;
-    }
-
     fn input_up(&self) -> bool {
         self.input.up
     }
@@ -101,6 +93,33 @@ impl State for BulletState {
     }
 }
 
+impl WriteState for BulletState {
+    fn set_pos_x(&mut self, f: f32) {
+        self.pos.x = f;
+    }
+    fn set_pos_y(&mut self, f: f32) {
+        self.pos.y = f;
+    }
+    fn set_input_up(&mut self, b: bool) {
+        self.input.up = b;
+    }
+    fn set_input_down(&mut self, b: bool) {
+        self.input.down = b;
+    }
+    fn set_input_left(&mut self, b: bool) {
+        self.input.left = b;
+    }
+    fn set_input_right(&mut self, b: bool) {
+        self.input.right = b;
+    }
+    fn set_input_shot(&mut self, b: bool) {
+        self.input.shot = b;
+    }
+    fn set_input_slow(&mut self, b: bool) {
+        self.input.slow = b;
+    }
+}
+
 pub struct Bullet {
     pub state: BulletState,
     vm: VM,
@@ -112,7 +131,7 @@ impl Bullet {
         Self {
             state: BulletState {
                 enabled: false,
-                input: Input::default(),
+                input: InputState::default(),
                 pos: glam::vec2(x, y),
             },
             vm: VM::new(Vec::new()),

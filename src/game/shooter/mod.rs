@@ -14,62 +14,25 @@ use ggez::{
 };
 use glam;
 
-use lang_compiler::compile;
-use lang_component::vm::Inst;
+mod bullet;
+mod shooter;
 
 use crate::{constant, game::Scene};
 
-mod bullet;
-
-use bullet::{Appearance, Bullet, BulletColor, BulletType, Input};
+use shooter::{Input, Shooter};
 
 trait SceneDrawable {
     fn draw(&self, ctx: &mut Context) -> GameResult<()>;
 }
 
 pub struct ShooterScene {
-    player: Bullet,
-    bullets: Vec<Bullet>,
+    shooter: Shooter,
 }
 
 impl ShooterScene {
     pub fn new() -> Self {
-        let DO_NOTHING_CODE = [Inst::Term];
-
-        let mut bullets = Vec::new();
-        for _ in 0..2000 {
-            let mut bullet = Bullet::new(
-                0.0,
-                0.0,
-                Appearance::new(BulletType::Bullet1, BulletColor::White),
-            );
-            bullet.set_code(Vec::from(DO_NOTHING_CODE.clone()));
-            bullets.push(bullet);
-        }
-
-        let player_code = r##"
-            proc main() {
-              $px = $px - if $input_left { if $input_slow { 4.0 } else { 7.0 } } else { 0.0 }
-              $px = $px + if $input_right { if $input_slow { 4.0 } else { 7.0 } } else { 0.0 }
-              $py = $py - if $input_up { if $input_slow { 4.0 } else { 7.0 } } else { 0.0 }
-              $py = $py + if $input_down { if $input_slow { 4.0 } else { 7.0 } } else { 0.0 }
-            }
-            "##
-        .to_string();
-        let compiled_player_code = compile(player_code);
-        let compiled_player_code = compiled_player_code.unwrap();
-        eprintln!("VM code = {:?}", compiled_player_code);
-
-        let mut player = Bullet::new(
-            200.0,
-            400.0,
-            Appearance::new(BulletType::Player, BulletColor::White),
-        );
-        player.set_code(compiled_player_code.into());
-
         Self {
-            player,
-            bullets: Vec::new(),
+            shooter: Shooter::new(),
         }
     }
 }
@@ -82,33 +45,27 @@ impl Scene for ShooterScene {
 
 impl EventHandler for ShooterScene {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
-        self.player.state.input = Input::default();
-        if keyboard::is_key_pressed(ctx, KeyCode::Right) {
-            self.player.state.input.right = true;
-        }
-        if keyboard::is_key_pressed(ctx, KeyCode::Left) {
-            self.player.state.input.left = true;
-        }
+        self.shooter.clear_input();
         if keyboard::is_key_pressed(ctx, KeyCode::Up) {
-            self.player.state.input.up = true;
+            self.shooter.input(&Input::Up);
         }
         if keyboard::is_key_pressed(ctx, KeyCode::Down) {
-            self.player.state.input.down = true;
+            self.shooter.input(&Input::Down);
+        }
+        if keyboard::is_key_pressed(ctx, KeyCode::Left) {
+            self.shooter.input(&Input::Left);
+        }
+        if keyboard::is_key_pressed(ctx, KeyCode::Right) {
+            self.shooter.input(&Input::Right);
         }
         if keyboard::is_key_pressed(ctx, KeyCode::Z) {
-            self.player.state.input.shot = true;
+            self.shooter.input(&Input::Shot);
         }
         if keyboard::is_mod_active(ctx, KeyMods::SHIFT) {
-            self.player.state.input.slow = true;
+            self.shooter.input(&Input::Slow);
         }
 
-        self.player.update();
-
-        for bullet in self.bullets.iter_mut() {
-            if bullet.state.enabled {
-                bullet.update();
-            }
-        }
+        self.shooter.update(ctx)?;
 
         Ok(())
     }
@@ -151,13 +108,7 @@ impl EventHandler for ShooterScene {
         graphics::draw(ctx, &shooter_area, DrawParam::default())?;
         graphics::draw(ctx, &shooter_border, DrawParam::default())?;
 
-        self.player.draw(ctx)?;
-
-        for bullet in self.bullets.iter() {
-            if bullet.state.enabled {
-                bullet.draw(ctx)?;
-            }
-        }
+        self.shooter.draw(ctx)?;
 
         graphics::present(ctx)?;
         // graphics::set_canvas(ctx, None);
