@@ -20,7 +20,7 @@ impl CodegenState {
 fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
     match expr {
         Expr::Float(f) => state.code.push(Inst::Float(*f)),
-        Expr::String(s) => todo!("treat strings"),
+        Expr::String(_) => todo!("treat strings"),
         Expr::Symbol(sym) => match sym {
             Symbol::State(Name(name)) => {
                 if let Some(name) = get_vm_name(name) {
