@@ -1,6 +1,6 @@
 use lang_component::vm::{Data, Inst};
 
-use crate::{error::RuntimeError, State, VM};
+use crate::{bullet::WriteState, error::RuntimeError, VM};
 
 pub struct Terminated(pub bool);
 
@@ -26,7 +26,7 @@ impl VM {
         self.code = code.into();
     }
 
-    pub fn run(&mut self, state: &mut dyn State) -> Result<(), RuntimeError> {
+    pub fn run(&mut self, state: &mut dyn WriteState) -> Result<(), RuntimeError> {
         self.pc = 0;
 
         loop {
@@ -47,7 +47,7 @@ impl VM {
         Ok(())
     }
 
-    fn run1(&mut self, state: &mut dyn State) -> Result<Terminated, RuntimeError> {
+    fn run1(&mut self, state: &mut dyn WriteState) -> Result<Terminated, RuntimeError> {
         let pc = self.pc;
         let inst = self.code.get(pc);
         self.pc += 1;

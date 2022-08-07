@@ -2,10 +2,10 @@ use ggez::{event::EventHandler, Context, GameResult};
 
 use lang_compiler::compile;
 use lang_component::vm::Inst;
-use lang_vm::WriteState;
+use lang_vm::bullet::{BulletColor, BulletType, WriteState};
 
 use super::{
-    bullet::{Appearance, Bullet, BulletColor, BulletType, InputState},
+    bullet::{Appearance, Bullet, InputState},
     SceneDrawable,
 };
 

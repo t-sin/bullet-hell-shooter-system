@@ -13,19 +13,13 @@ use ggez::{
 use glam;
 
 use lang_component::vm::Inst;
-use lang_vm::{ReadState, WriteState, VM};
+use lang_vm::{
+    bullet::{BulletColor, BulletType, ReadState, WriteState},
+    VM,
+};
 
 use super::SceneDrawable;
 use crate::constant;
-
-pub enum BulletType {
-    Player,
-    Bullet1,
-}
-
-pub enum BulletColor {
-    White,
-}
 
 pub struct Appearance {
     pub r#type: BulletType,
