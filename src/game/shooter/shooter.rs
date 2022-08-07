@@ -1,8 +1,10 @@
+use std::collections::VecDeque;
+
 use ggez::{event::EventHandler, Context, GameResult};
 
 use lang_compiler::compile;
 use lang_component::vm::Inst;
-use lang_vm::bullet::{BulletColor, BulletType, WriteState};
+use lang_vm::bullet::{BulletColor, BulletType, Operation, WriteState};
 
 use super::{
     bullet::{Appearance, Bullet, InputState},
@@ -12,6 +14,7 @@ use super::{
 pub struct Shooter {
     pub player: Bullet,
     pub bullets: Vec<Bullet>,
+    pub queued_ops: VecDeque<Operation>,
 }
 
 pub enum Input {
@@ -65,6 +68,7 @@ impl Shooter {
         Self {
             player: init_player(),
             bullets,
+            queued_ops: VecDeque::new(),
         }
     }
 
@@ -86,11 +90,11 @@ impl Shooter {
 
 impl EventHandler for Shooter {
     fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
-        self.player.update();
+        self.player.update(&mut self.queued_ops);
 
         for bullet in self.bullets.iter_mut() {
             if bullet.state.enabled {
-                bullet.update();
+                bullet.update(&mut self.queued_ops);
             }
         }
 

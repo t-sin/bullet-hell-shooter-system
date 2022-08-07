@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use ggez::{
     graphics::{
         self,
@@ -14,7 +16,7 @@ use glam;
 
 use lang_component::vm::Inst;
 use lang_vm::{
-    bullet::{BulletColor, BulletType, ReadState, WriteState},
+    bullet::{BulletColor, BulletType, Operation, ReadState, WriteState},
     VM,
 };
 
@@ -137,8 +139,8 @@ impl Bullet {
         self.vm.set_code(code);
     }
 
-    pub fn update(&mut self) {
-        if let Err(err) = VM::run(&mut self.vm, &mut self.state) {
+    pub fn update(&mut self, ops_queue: &mut VecDeque<Operation>) {
+        if let Err(err) = VM::run(&mut self.vm, &mut self.state, ops_queue) {
             println!("VM runtime error: {:?}", err);
         }
     }

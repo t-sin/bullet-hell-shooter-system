@@ -1,6 +1,12 @@
+use std::collections::VecDeque;
+
 use lang_component::vm::{Data, Inst};
 
-use crate::{bullet::WriteState, error::RuntimeError, VM};
+use crate::{
+    bullet::{BulletColor, BulletType, Operation, WriteState},
+    error::RuntimeError,
+    VM,
+};
 
 pub struct Terminated(pub bool);
 
@@ -26,11 +32,15 @@ impl VM {
         self.code = code.into();
     }
 
-    pub fn run(&mut self, state: &mut dyn WriteState) -> Result<(), RuntimeError> {
+    pub fn run(
+        &mut self,
+        state: &mut dyn WriteState,
+        ops_queue: &mut VecDeque<Operation>,
+    ) -> Result<(), RuntimeError> {
         self.pc = 0;
 
         loop {
-            match self.run1(state) {
+            match self.run1(state, ops_queue) {
                 Ok(terminated) => {
                     if terminated.0 {
                         break;
@@ -47,7 +57,11 @@ impl VM {
         Ok(())
     }
 
-    fn run1(&mut self, state: &mut dyn WriteState) -> Result<Terminated, RuntimeError> {
+    fn run1(
+        &mut self,
+        state: &mut dyn WriteState,
+        ops_queue: &mut VecDeque<Operation>,
+    ) -> Result<Terminated, RuntimeError> {
         let pc = self.pc;
         let inst = self.code.get(pc);
         self.pc += 1;
@@ -106,7 +120,30 @@ impl VM {
                             Err(RuntimeError::StackUnderflow)
                         }
                     }
-
+                    Inst::Fire(bullet_name) => {
+                        if let Some(y) = self.stack.pop() {
+                            if let Some(x) = self.stack.pop() {
+                                let x = match x {
+                                    Data::Float(f) => f,
+                                };
+                                let y = match y {
+                                    Data::Float(f) => f,
+                                };
+                                ops_queue.push_back(Operation::PutBullet(
+                                    x,
+                                    y,
+                                    "".to_string(),
+                                    BulletType::Bullet1,
+                                    BulletColor::White,
+                                ));
+                                Ok(Terminated(false))
+                            } else {
+                                Err(RuntimeError::StackUnderflow)
+                            }
+                        } else {
+                            Err(RuntimeError::StackUnderflow)
+                        }
+                    }
                     Inst::Add | Inst::Sub | Inst::Mul => {
                         if let Some(b) = self.stack.pop() {
                             if let Some(a) = self.stack.pop() {

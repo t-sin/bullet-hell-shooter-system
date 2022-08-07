@@ -12,6 +12,8 @@ pub enum Inst {
     // state accessors
     Get(String),
     Set(String),
+    // external operations
+    Fire(String),
     // arithmetics
     Add,
     Sub,

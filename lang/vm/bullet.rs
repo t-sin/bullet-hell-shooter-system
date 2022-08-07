@@ -28,3 +28,7 @@ pub trait WriteState: ReadState {
     fn set_input_shot(&mut self, b: bool);
     fn set_input_slow(&mut self, b: bool);
 }
+
+pub enum Operation {
+    PutBullet(f32, f32, String, BulletType, BulletColor),
+}
