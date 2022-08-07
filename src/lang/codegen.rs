@@ -1,5 +1,5 @@
-use super::{
-    syntax_tree::{Body, Expr, Name, Op2, Symbol, SyntaxTree},
+use lang_component::{
+    syntax::{Body, Expr, Name, Op2, Symbol, SyntaxTree},
     vm::Inst,
 };
 

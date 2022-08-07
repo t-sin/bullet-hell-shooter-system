@@ -6,8 +6,7 @@ use nom::{
     Err, IResult,
 };
 
-use super::syntax_tree::*;
-use super::tokenize::*;
+use lang_component::{syntax::*, token::*};
 
 // ErrorKinds for this bullet-hell lang.
 #[derive(Debug, Clone)]

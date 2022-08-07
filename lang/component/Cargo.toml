@@ -1,0 +1,10 @@
+[package]
+name = "lang_component"
+version = "0.1.0"
+description = "Components (AST, VM inst etc.) for the Bullet lang"
+edition = "2021"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]

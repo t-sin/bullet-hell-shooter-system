@@ -2,8 +2,8 @@ use glam;
 
 mod codegen;
 mod parse;
-mod syntax_tree;
 mod tokenize;
+pub mod vm;
 
 mod compiler {
     use nom::{
@@ -11,11 +11,12 @@ mod compiler {
         Err,
     };
 
+    use lang_component::vm::Inst;
+
     use super::{
         codegen::codegen,
         parse::{parse, ParserError},
         tokenize::tokenize,
-        vm::Inst,
     };
 
     #[derive(Debug)]
@@ -61,10 +62,10 @@ mod compiler {
     }
 }
 
-pub mod vm;
-use vm::{Inst, VM};
+use lang_component::vm::Inst;
 
 pub use compiler::{compile, CompileError, TokenizerError};
+use vm::VM;
 
 pub enum BulletType {
     Player,
