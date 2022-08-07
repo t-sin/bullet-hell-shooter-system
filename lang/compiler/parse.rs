@@ -75,7 +75,6 @@ impl<I> nom::error::ParseError<I> for ParseError<I> {
 }
 
 pub type Input<'a> = &'a [Token];
-type OpTerm<'a> = (&'a BinOp, Expr);
 
 type CombinatorResult<'a> = IResult<Input<'a>, &'a Token, ParseError<Input<'a>>>;
 
@@ -123,27 +122,6 @@ fn token_type<'a>(token: Token) -> impl Fn(&'a [Token]) -> CombinatorResult<'a> 
                 None,
             )))
         }
-    }
-}
-
-fn token_op<'a>(t: Input<'a>) -> IResult<Input<'a>, &'a BinOp, ParseError<Input<'a>>> {
-    let (t, len) = rest_len(t)?;
-    if len > 0 {
-        if let Token::Op(op) = &t[0] {
-            Ok((&t[1..], op))
-        } else {
-            Err(Err::Error(ParseError::new(
-                &t[..],
-                ErrorKind::UnexpectedToken(t[0].clone()),
-                None,
-            )))
-        }
-    } else {
-        Err(Err::Error(ParseError::new(
-            &t[..],
-            ErrorKind::UnexpectedEOF,
-            None,
-        )))
     }
 }
 
@@ -330,12 +308,6 @@ fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Inpu
         }
         Err(err) => Err(err),
     }
-}
-
-fn parse_expr_op_level1_subexpr<'a>(
-    t: Input<'a>,
-) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    parse_expr_term(t)
 }
 
 fn parse_expr_op_level1_foldl<'a>(expr1: Expr, opterms: Vec<(&'a Token, Expr)>) -> Expr {
