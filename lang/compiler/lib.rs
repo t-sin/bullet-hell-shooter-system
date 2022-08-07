@@ -2,10 +2,7 @@ mod codegen;
 mod parse;
 mod tokenize;
 
-use nom::{
-    error::{Error, ErrorKind},
-    Err,
-};
+use nom::{error::ErrorKind, Err};
 
 use lang_component::vm::Inst;
 
