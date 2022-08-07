@@ -1,21 +1,7 @@
 use lang_component::{
     syntax::{Body, Expr, Name, Op2, Symbol, SyntaxTree},
-    vm::Inst,
+    vm::{get_vm_name, Inst},
 };
-
-fn get_vm_name(sname: &str) -> Option<String> {
-    match sname {
-        "px" => Some("Pos:X".to_string()),
-        "py" => Some("Pos:Y".to_string()),
-        "input_up" => Some("Input:Up".to_string()),
-        "input_down" => Some("Input:Down".to_string()),
-        "input_left" => Some("Input:Left".to_string()),
-        "input_right" => Some("Input:Right".to_string()),
-        "input_shot" => Some("Input:Shot".to_string()),
-        "input_slow" => Some("Input:Slow".to_string()),
-        _ => None,
-    }
-}
 
 struct CodegenState {
     code: Vec<Inst>,

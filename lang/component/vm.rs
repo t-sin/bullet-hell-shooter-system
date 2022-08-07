@@ -28,3 +28,17 @@ pub enum Inst {
     JumpIfZero(usize),
     Jump(usize),
 }
+
+pub fn get_vm_name(state_name: &str) -> Option<String> {
+    match state_name {
+        "px" => Some("Pos:X".to_string()),
+        "py" => Some("Pos:Y".to_string()),
+        "input_up" => Some("Input:Up".to_string()),
+        "input_down" => Some("Input:Down".to_string()),
+        "input_left" => Some("Input:Left".to_string()),
+        "input_right" => Some("Input:Right".to_string()),
+        "input_shot" => Some("Input:Shot".to_string()),
+        "input_slow" => Some("Input:Slow".to_string()),
+        _ => None,
+    }
+}

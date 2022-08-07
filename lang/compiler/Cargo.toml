@@ -1,0 +1,13 @@
+[package]
+name = "lang_compiler"
+version = "0.1.0"
+description = "A compiler for the Bullet lang"
+edition = "2021"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+lang_component = { path = "../component" }
+
+nom = "7.1.1"

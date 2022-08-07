@@ -14,12 +14,13 @@ use ggez::{
 };
 use glam;
 
+use lang_compiler::compile;
 use lang_component::vm::Inst;
 
 use crate::{
     constant,
     game::Scene,
-    lang::{compile, Appearance, Bullet, BulletColor, BulletType, Input},
+    lang::{Appearance, Bullet, BulletColor, BulletType, Input},
 };
 
 mod bullet;

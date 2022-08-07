@@ -135,9 +135,9 @@ version = "0.1.0"
 dependencies = [
  "ggez",
  "glam",
+ "lang_compiler",
  "lang_component",
  "lang_vm",
- "nom",
 ]
 
 [[package]]
@@ -1160,6 +1160,14 @@ name = "khronos_api"
 version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
+
+[[package]]
+name = "lang_compiler"
+version = "0.1.0"
+dependencies = [
+ "lang_component",
+ "nom",
+]
 
 [[package]]
 name = "lang_component"
