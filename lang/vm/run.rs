@@ -5,6 +5,7 @@ use lang_component::vm::{Data, Inst};
 use crate::{
     bullet::{BulletColor, BulletType, Operation, WriteState},
     error::RuntimeError,
+    r#macro::*,
     VM,
 };
 
@@ -97,22 +98,18 @@ impl VM {
                         if let Some(d) = self.stack.pop() {
                             match name.as_str() {
                                 "Pos:X" => {
-                                    if let Data::Float(f) = d {
-                                        //println!("SetPosX: pos.x <- {}", x);
-                                        state.set_pos_x(f);
-                                        Ok(Terminated(false))
-                                    } else {
-                                        Err(RuntimeError::TypeMismatched(d, "float".to_owned()))
-                                    }
+                                    #[allow(irrefutable_let_patterns)]
+                                    let x = float_data!(d);
+                                    //println!("SetPosX: pos.x <- {}", x);
+                                    state.set_pos_x(x);
+                                    Ok(Terminated(false))
                                 }
                                 "Pos:Y" => {
-                                    if let Data::Float(f) = d {
-                                        println!("SetPosX: pos.x <- {}", f);
-                                        state.set_pos_y(f);
-                                        Ok(Terminated(false))
-                                    } else {
-                                        Err(RuntimeError::TypeMismatched(d, "float".to_owned()))
-                                    }
+                                    #[allow(irrefutable_let_patterns)]
+                                    let y = float_data!(d);
+                                    println!("SetPosX: pos.x <- {}", y);
+                                    state.set_pos_y(y);
+                                    Ok(Terminated(false))
                                 }
                                 _ => return Err(RuntimeError::UnknownStateName(name.to_owned())),
                             }
@@ -123,12 +120,10 @@ impl VM {
                     Inst::Fire(blang_name) => {
                         if let Some(y) = self.stack.pop() {
                             if let Some(x) = self.stack.pop() {
-                                let x = match x {
-                                    Data::Float(f) => f,
-                                };
-                                let y = match y {
-                                    Data::Float(f) => f,
-                                };
+                                #[allow(irrefutable_let_patterns)]
+                                let x = float_data!(x);
+                                #[allow(irrefutable_let_patterns)]
+                                let y = float_data!(y);
                                 ops_queue.push_back(Operation::PutBullet(
                                     x,
                                     y,
@@ -147,12 +142,10 @@ impl VM {
                     Inst::Add | Inst::Sub | Inst::Mul => {
                         if let Some(b) = self.stack.pop() {
                             if let Some(a) = self.stack.pop() {
-                                let a = match a {
-                                    Data::Float(f) => f,
-                                };
-                                let b = match b {
-                                    Data::Float(f) => f,
-                                };
+                                #[allow(irrefutable_let_patterns)]
+                                let a = float_data!(a);
+                                #[allow(irrefutable_let_patterns)]
+                                let b = float_data!(b);
                                 self.stack.push(Data::Float(match inst {
                                     Inst::Add => a + b,
                                     Inst::Sub => a - b,
@@ -171,12 +164,10 @@ impl VM {
                     Inst::EqInt => {
                         if let Some(a) = self.stack.pop() {
                             if let Some(b) = self.stack.pop() {
-                                let a = match a {
-                                    Data::Float(f) => f as i32,
-                                };
-                                let b = match b {
-                                    Data::Float(f) => f as i32,
-                                };
+                                #[allow(irrefutable_let_patterns)]
+                                let a = float_data!(a);
+                                #[allow(irrefutable_let_patterns)]
+                                let b = float_data!(b);
 
                                 if a == b {
                                     self.stack.push(Data::Float(1.0));
@@ -195,12 +186,10 @@ impl VM {
                     Inst::EqFloat => {
                         if let Some(a) = self.stack.pop() {
                             if let Some(b) = self.stack.pop() {
-                                let a = match a {
-                                    Data::Float(f) => f,
-                                };
-                                let b = match b {
-                                    Data::Float(f) => f,
-                                };
+                                #[allow(irrefutable_let_patterns)]
+                                let a = float_data!(a);
+                                #[allow(irrefutable_let_patterns)]
+                                let b = float_data!(b);
 
                                 if a == b {
                                     self.stack.push(Data::Float(1.0));
@@ -219,12 +208,10 @@ impl VM {
                     Inst::Lt => {
                         if let Some(a) = self.stack.pop() {
                             if let Some(b) = self.stack.pop() {
-                                let a = match a {
-                                    Data::Float(f) => f,
-                                };
-                                let b = match b {
-                                    Data::Float(f) => f,
-                                };
+                                #[allow(irrefutable_let_patterns)]
+                                let a = float_data!(a);
+                                #[allow(irrefutable_let_patterns)]
+                                let b = float_data!(b);
 
                                 if a > b {
                                     self.stack.push(Data::Float(1.0));
@@ -242,16 +229,14 @@ impl VM {
                     }
                     Inst::Not => {
                         if let Some(x) = self.stack.pop() {
-                            if let Data::Float(x) = x {
-                                if x == 0.0 {
-                                    self.stack.push(Data::Float(1.0));
-                                } else {
-                                    self.stack.push(Data::Float(0.0));
-                                }
-                                Ok(Terminated(false))
+                            #[allow(irrefutable_let_patterns)]
+                            let x = float_data!(x);
+                            if x == 0.0 {
+                                self.stack.push(Data::Float(1.0));
                             } else {
-                                Err(RuntimeError::TypeMismatched(x, "float".to_owned()))
+                                self.stack.push(Data::Float(0.0));
                             }
+                            Ok(Terminated(false))
                         } else {
                             Err(RuntimeError::StackUnderflow)
                         }
@@ -271,14 +256,12 @@ impl VM {
                     }
                     Inst::JumpIfZero(offset) => {
                         if let Some(y) = self.stack.pop() {
-                            if let Data::Float(y) = y {
-                                if y == 0.0 {
-                                    self.pc += offset - 1;
-                                }
-                                Ok(Terminated(false))
-                            } else {
-                                Err(RuntimeError::TypeMismatched(y, "float".to_owned()))
+                            #[allow(irrefutable_let_patterns)]
+                            let y = float_data!(y);
+                            if y == 0.0 {
+                                self.pc += offset - 1;
                             }
+                            Ok(Terminated(false))
                         } else {
                             Err(RuntimeError::StackUnderflow)
                         }

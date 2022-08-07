@@ -1,5 +1,6 @@
 pub mod bullet;
 pub mod error;
+mod r#macro;
 pub mod run;
 
 pub use error::*;
