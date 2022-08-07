@@ -120,7 +120,7 @@ impl VM {
                             Err(RuntimeError::StackUnderflow)
                         }
                     }
-                    Inst::Fire(bullet_name) => {
+                    Inst::Fire(blang_name) => {
                         if let Some(y) = self.stack.pop() {
                             if let Some(x) = self.stack.pop() {
                                 let x = match x {
@@ -132,7 +132,7 @@ impl VM {
                                 ops_queue.push_back(Operation::PutBullet(
                                     x,
                                     y,
-                                    "".to_string(),
+                                    blang_name.to_string(),
                                     BulletType::Bullet1,
                                     BulletColor::White,
                                 ));
