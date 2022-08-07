@@ -298,7 +298,7 @@ fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Inpu
             {
                 Ok((t, Token::Delim(_))) => parse_expr_paren(t),
                 Ok((t, Token::Keyword(_))) => parse_expr_if(t),
-                Ok((t, _)) => unreachable!(),
+                Ok((_, _)) => unreachable!(),
                 Err(_) => Err(Err::Error(ParseError::new(
                     t,
                     ErrorKind::NotAnExprTerm,
