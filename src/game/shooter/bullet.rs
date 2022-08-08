@@ -117,14 +117,16 @@ impl WriteState for BulletState {
 }
 
 pub struct Bullet {
+    pub next: Option<usize>,
     pub state: BulletState,
     vm: VM,
     pub appearance: Appearance,
 }
 
 impl Bullet {
-    pub fn new(x: f32, y: f32, a: Appearance) -> Self {
+    pub fn new(x: f32, y: f32, a: Appearance, next: Option<usize>) -> Self {
         Self {
+            next,
             state: BulletState {
                 enabled: false,
                 input: InputState::default(),

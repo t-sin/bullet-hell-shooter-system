@@ -11,9 +11,81 @@ use super::{
     SceneDrawable,
 };
 
+pub struct BulletVec {
+    pub bullets: Vec<Bullet>,
+    pub next_disabled: Option<usize>,
+}
+
+impl BulletVec {
+    const BULLET_MAX: usize = 4000;
+
+    pub fn new() -> Self {
+        let bullet_code = [Inst::Term];
+
+        let mut bullets = Vec::new();
+        for n in 0..Self::BULLET_MAX {
+            let mut bullet = Bullet::new(
+                0.0,
+                0.0,
+                Appearance::new(BulletType::Bullet1, BulletColor::White),
+                if n == Self::BULLET_MAX - 1 {
+                    None
+                } else {
+                    Some(n + 1)
+                },
+            );
+            bullet.set_code(Vec::from(bullet_code.clone()));
+            bullets.push(bullet);
+        }
+
+        Self {
+            bullets,
+            next_disabled: Some(0),
+        }
+    }
+
+    fn put_bullet(
+        &mut self,
+        x: f32,
+        y: f32,
+        code: Vec<Inst>,
+        r#type: BulletType,
+        color: BulletColor,
+    ) {
+        if let Some(idx) = self.next_disabled {
+            if let Some(b) = self.bullets.iter_mut().nth(idx) {
+                self.next_disabled = b.next;
+                b.next = None;
+
+                b.state.set_pos_x(x);
+                b.state.set_pos_y(y);
+                b.set_code(code);
+                b.appearance.r#type = r#type;
+                b.appearance.color = color;
+            }
+        }
+    }
+
+    fn update(&mut self, queued_ops: &mut VecDeque<Operation>) {
+        for bullet in self.bullets.iter_mut() {
+            if bullet.state.enabled {
+                bullet.update(queued_ops);
+            }
+        }
+    }
+
+    fn draw(&mut self, ctx: &mut Context) {
+        for bullet in self.bullets.iter() {
+            if bullet.state.enabled {
+                let _ = bullet.draw(ctx);
+            }
+        }
+    }
+}
+
 pub struct Shooter {
     pub player: Bullet,
-    pub bullets: Vec<Bullet>,
+    pub bullets: BulletVec,
     pub queued_ops: VecDeque<Operation>,
 }
 
@@ -46,6 +118,7 @@ fn init_player() -> Bullet {
         200.0,
         400.0,
         Appearance::new(BulletType::Player, BulletColor::White),
+        None,
     );
     player.set_code(compiled_player_code.into());
 
@@ -54,22 +127,9 @@ fn init_player() -> Bullet {
 
 impl Shooter {
     pub fn new() -> Self {
-        let bullet_code = [Inst::Term];
-
-        let mut bullets = Vec::new();
-        for _ in 0..2000 {
-            let mut bullet = Bullet::new(
-                0.0,
-                0.0,
-                Appearance::new(BulletType::Bullet1, BulletColor::White),
-            );
-            bullet.set_code(Vec::from(bullet_code.clone()));
-            bullets.push(bullet);
-        }
-
         Self {
             player: init_player(),
-            bullets,
+            bullets: BulletVec::new(),
             queued_ops: VecDeque::new(),
         }
     }
@@ -93,10 +153,15 @@ impl Shooter {
 impl EventHandler for Shooter {
     fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
         self.player.update(&mut self.queued_ops);
+        self.bullets.update(&mut self.queued_ops);
 
-        for bullet in self.bullets.iter_mut() {
-            if bullet.state.enabled {
-                bullet.update(&mut self.queued_ops);
+        for op in self.queued_ops.iter() {
+            match op {
+                Operation::PutBullet(x, y, _prog_name, r#type, color) => {
+                    let code = vec![Inst::Term];
+                    // TODO: to specify parameter, main() can take external parametrs
+                    self.bullets.put_bullet(*x, *y, code, *r#type, *color);
+                }
             }
         }
 
@@ -105,12 +170,7 @@ impl EventHandler for Shooter {
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         self.player.draw(ctx)?;
-
-        for bullet in self.bullets.iter() {
-            if bullet.state.enabled {
-                bullet.draw(ctx)?;
-            }
-        }
+        self.bullets.draw(ctx);
 
         Ok(())
     }

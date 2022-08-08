@@ -1,8 +1,10 @@
+#[derive(Debug, Clone, Copy)]
 pub enum BulletType {
     Player,
     Bullet1,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum BulletColor {
     White,
 }
