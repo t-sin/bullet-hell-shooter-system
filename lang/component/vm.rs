@@ -26,6 +26,8 @@ pub enum Inst {
     Not,
     // stack operations
     Dup,
+    Drop,
+    Index,
     // control flows
     JumpIfZero(usize),
     Jump(usize),

@@ -211,6 +211,25 @@ impl VM {
                         self.stack.push(x);
                         Ok(Terminated(false))
                     }
+                    Inst::Drop => {
+                        let _ = self.stack.pop();
+                        Ok(Terminated(false))
+                    }
+                    Inst::Index => {
+                        let n = stack_pop!(self.stack);
+                        #[allow(irrefutable_let_patterns)]
+                        let n = float_data!(n) as usize;
+
+                        if self.stack.len() >= n {
+                            return Err(RuntimeError::StackUnderflow);
+                        }
+
+                        let idx = self.stack.len() - 1 - n;
+                        let data = self.stack.iter().nth(idx).unwrap();
+                        self.stack.push(data.clone());
+
+                        Ok(Terminated(false))
+                    }
                     Inst::Jump(offset) => {
                         self.pc += offset - 1;
                         Ok(Terminated(false))
