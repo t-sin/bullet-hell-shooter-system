@@ -29,10 +29,12 @@ pub enum Input {
 fn init_player() -> Bullet {
     let player_code = r##"
             proc main() {
-              $px = $px - if $input_left { if $input_slow { 4.0 } else { 7.0 } } else { 0.0 }
-              $px = $px + if $input_right { if $input_slow { 4.0 } else { 7.0 } } else { 0.0 }
-              $py = $py - if $input_up { if $input_slow { 4.0 } else { 7.0 } } else { 0.0 }
-              $py = $py + if $input_down { if $input_slow { 4.0 } else { 7.0 } } else { 0.0 }
+              let slow_v = 4.0
+              let fast_v = 7.0
+              $px = $px - if $input_left { if $input_slow { slow_v } else { fast_v } } else { 0.0 }
+              $px = $px + if $input_right { if $input_slow { slow_v } else { fast_v } } else { 0.0 }
+              $py = $py - if $input_up { if $input_slow { slow_v } else { fast_v } } else { 0.0 }
+              $py = $py + if $input_down { if $input_slow { slow_v } else { fast_v } } else { 0.0 }
             }
             "##
     .to_string();

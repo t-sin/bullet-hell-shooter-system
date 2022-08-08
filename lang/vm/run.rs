@@ -38,6 +38,7 @@ impl VM {
         state: &mut dyn WriteState,
         ops_queue: &mut VecDeque<Operation>,
     ) -> Result<(), RuntimeError> {
+        //self.stack.clear();
         self.pc = 0;
 
         loop {
@@ -220,7 +221,7 @@ impl VM {
                         #[allow(irrefutable_let_patterns)]
                         let n = float_data!(n) as usize;
 
-                        if self.stack.len() >= n {
+                        if self.stack.len() <= n {
                             return Err(RuntimeError::StackUnderflow);
                         }
 
