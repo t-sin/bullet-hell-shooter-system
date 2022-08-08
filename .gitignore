@@ -1,2 +1,6 @@
 /target
 *~
+
+lang/compiler/target/
+lang/vm/Cargo.lock
+lang/vm/target/

@@ -559,6 +559,7 @@ pub fn parse<'a>(t: Input<'a>) -> ParseResult<'a> {
 #[cfg(test)]
 mod parser_test {
     use super::*;
+    use crate::tokenize;
 
     fn test_parse_1(expected: SyntaxTree, string: &str) {
         println!("text: {:?}", string);

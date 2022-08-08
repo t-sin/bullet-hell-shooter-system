@@ -3,6 +3,13 @@ name = "bullets"
 version = "0.1.0"
 edition = "2021"
 
+[workspace]
+members = [
+  "./lang/component",
+  "./lang/compiler",
+  "./lang/vm",
+]
+
 [dependencies]
 lang_component = { path = "./lang/component" }
 lang_vm = { path = "./lang/vm" }
