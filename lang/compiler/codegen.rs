@@ -12,7 +12,7 @@ impl CodegenState {
         Self { code: Vec::new() }
     }
 
-    fn append(&mut self, other: &mut Self) {
+    fn append_code(&mut self, other: &mut Self) {
         self.code.append(&mut other.code)
     }
 }
@@ -56,11 +56,11 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
             state.code.push(Inst::JumpIfZero(true_len + 2)); //  true clause + Jump + 1
 
             // true clause
-            state.append(&mut trustate);
+            state.append_code(&mut trustate);
             state.code.push(Inst::Jump(false_len + 1)); //  false clause + 1
 
             // false clause
-            state.append(&mut flsstate);
+            state.append_code(&mut flsstate);
         }
     }
 }
