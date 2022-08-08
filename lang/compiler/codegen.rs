@@ -120,9 +120,10 @@ mod codegen_test {
             println!("tokens: {:?}", tokens);
             if let Ok((&[], stvec)) = parse(&tokens) {
                 let actual = codegen(stvec);
+                println!("actual = {:?}\nexpected = {:?}", actual, expected);
+
                 assert_eq!(actual.len(), expected.len());
                 let eq = actual.iter().zip(expected.clone()).all(|(a, b)| *a == b);
-                println!("actual = {:?}\nexpected = {:?}", actual, expected);
                 assert!(eq);
             } else {
                 println!("Cannot parse source: {}", string);
@@ -137,7 +138,7 @@ mod codegen_test {
     #[test]
     fn test_codegen_assign_value_to_px() {
         test_codegen(
-            vec![Inst::Float(1.0), Inst::Set("PosX".to_string()), Inst::Term],
+            vec![Inst::Float(1.0), Inst::Set("Pos:X".to_string()), Inst::Term],
             r##"
             proc main() {
               $px = 1.0
@@ -153,7 +154,7 @@ mod codegen_test {
                 Inst::Float(1.0),
                 Inst::Float(2.0),
                 Inst::Add,
-                Inst::Set("PosY".to_string()),
+                Inst::Set("Pos:Y".to_string()),
                 Inst::Term,
             ],
             r##"
@@ -169,7 +170,7 @@ mod codegen_test {
                 Inst::Float(3.0),
                 Inst::Mul,
                 Inst::Add,
-                Inst::Set("PosY".to_string()),
+                Inst::Set("Pos:Y".to_string()),
                 Inst::Term,
             ],
             r##"
@@ -184,14 +185,16 @@ mod codegen_test {
     fn test_codegen_assign_value_with_if_expr() {
         test_codegen(
             vec![
-                Inst::Get("PosX".to_string()),
-                Inst::Get("InputSlow".to_string()),
-                Inst::JumpIfZero(2),
+                Inst::Get("Pos:X".to_string()),
+                Inst::Get("Input:Slow".to_string()),
+                Inst::Float(1.0),
+                Inst::EqFloat,
+                Inst::JumpIfZero(3),
                 Inst::Float(4.0),
                 Inst::Jump(2),
                 Inst::Float(7.0),
                 Inst::Add,
-                Inst::Set("PosX".to_string()),
+                Inst::Set("Pos:X".to_string()),
                 Inst::Term,
             ],
             r##"
