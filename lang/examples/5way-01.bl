@@ -1,0 +1,83 @@
+//// 10フレームごとに5-way弾を自機に向け打つ敵
+
+proc vanish_out_of_screen() {
+  if $px < 0 || 400 < $px || $py < 0 || 600 < $py {
+    vanish()
+  }
+}
+
+// bulletキーワードによる定義は別弾になるので
+// $pxとかの取得先がmainではなくここで定義される弾になる。
+// 発射時には、`linear(10, 20)`みたいに呼んでパラメータを埋める必要がある。
+// 呼んだ結果のオブジェクトはどんなデータなんだろうなあ…。
+bullet linear(dir, v) {
+  $px += cos(dir) * v
+  $py += sin(dir) * v
+  vanish_out_of_screen()
+}
+
+proc fire_5way() {
+  // $player_dirでatan2してくれてもいいのよ…
+  let target_dir = atan2($player_x, $player_y)
+
+  times 5 {
+    let dir = target_dir + #n * 15 - 22.5
+    // fireの引数はXとY、弾本体。
+    // bulletキーワードの名前の関数はパラメータを埋めるためのもの。
+    fire($px, $py, linear(dir, 5))
+  }
+}
+
+// `timeline`: イベント列を記述するやつ。
+// 内部状態を自動管理してよしなにやってくれる。
+// `$frames`みたいな状態は呼び出し元オブジェクトを参照する。
+// イベントを実行するときは単に関数として呼ぶ。引数を指定できる。
+timeline fire_repeatedly() [
+  // つぎのようなかんじ: if count < 10 { 後続の処理 } else { `=>`に書かれた処理; 抜ける }
+  // くわえて:
+  // - 内部のカウントを+1
+  // - 全内部状態を初期化 (コンパイル時にわかりはするはず)
+  repeat(10) => nil
+  // つぎのようなかんじ: if $frames - started > 9 { 後続の処理 } else { 抜ける }
+  // starredはよしなに更新される
+  frames_elapsed(9) => nil   
+  // つぎのようなかんじ: if true { 後続の処理 } else { 抜ける }
+  true => fire_5way()
+]
+
+proc main() {
+  fire_repeateadly()
+}
+
+//// 10フレームごとに5-way弾を自機に向け打つ敵 (timelineなし版)
+
+proc vanish_out_of_screen() {
+  if $px < 0 || 400 < $px || $py < 0 || 600 < $py {
+    vanish()
+  }
+}
+
+bullet linear(dir, v) {
+  $px += cos(dir) * v
+  $py += sin(dir) * v
+  vanish_out_of_screen()
+}
+
+proc fire_5way() {
+  let target_dir = atan2($player_x, $player_y)
+
+  times 5 {
+    let dir = target_dir + #n * 15 - 22.5
+    fire($px, $py, linear(dir, 5))
+  }
+}
+
+proc fire_repeateadly() {
+  if %frames % 10 == 0 {
+    fire_5way()
+  }
+}
+
+proc main() {
+  fire_repeateadly()
+}
