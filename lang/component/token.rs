@@ -1,3 +1,5 @@
+use crate::syntax::Type;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Float(pub f32);
 impl Eq for Float {}
@@ -9,6 +11,7 @@ pub enum Keyword {
     If,
     Else,
     Let,
+    Global,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,6 +47,8 @@ pub enum Token {
     Newline,
     Ident(String),
     Eof,
+    True,
+    False,
 }
 
 pub fn token_type_eq(t1: &Token, t2: &Token) -> bool {
@@ -57,5 +62,7 @@ pub fn token_type_eq(t1: &Token, t2: &Token) -> bool {
         Token::Delim(delim1) => matches!(t2, Token::Delim(delim2) if  delim1 == delim2),
         Token::Op(op1) => matches!(t2, Token::Op(op2) if  op1 == op2),
         Token::Eof => matches!(t2, Token::Eof),
+        Token::True => matches!(t2, Token::True),
+        Token::False => matches!(t2, Token::False),
     }
 }

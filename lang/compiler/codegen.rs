@@ -66,9 +66,22 @@ impl StackInfo {
 }
 
 #[derive(Debug)]
+struct MemoryInfo {
+    name: String,
+    r#type: Type,
+}
+
+impl MemoryInfo {
+    pub fn new(name: String, r#type: Type) -> Self {
+        Self { name, r#type }
+    }
+}
+
+#[derive(Debug)]
 struct CodegenState {
     code: Vec<Inst>,
     stack: StackInfo,
+    memory: Vec<MemoryInfo>,
 }
 
 impl CodegenState {
@@ -76,6 +89,7 @@ impl CodegenState {
         Self {
             code: Vec::new(),
             stack: StackInfo::new(),
+            memory: Vec::new(),
         }
     }
 
@@ -96,6 +110,10 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
         Expr::Float(f) => {
             state.code.push(Inst::Float(*f));
             state.stack.push(StackData::Float);
+        }
+        Expr::Bool(b) => {
+            state.code.push(Inst::Bool(*b));
+            state.stack.push(StackData::Bool);
         }
         Expr::String(_) => todo!("treat strings"),
         Expr::Symbol(sym) => match sym {
@@ -202,7 +220,22 @@ fn codegen_syntax_trees(stvec: Vec<SyntaxTree>, state: &mut CodegenState) {
                     todo!("treat not-an-entrypoint functions")
                 }
             }
-            _ => todo!("treat global variables maybe with memory?"),
+            SyntaxTree::GlobalDefine(Symbol::Var(Name(name)), expr) => match expr {
+                Expr::Float(_f) => {
+                    // set _f to memory
+                    state
+                        .memory
+                        .push(MemoryInfo::new(name.to_string(), Type::Float))
+                }
+                Expr::Bool(_b) => {
+                    // set _b to memory
+                    state
+                        .memory
+                        .push(MemoryInfo::new(name.to_string(), Type::Bool))
+                }
+                _ => panic!("right side of global definition allows only literals"),
+            },
+            _ => (),
         };
     }
 }

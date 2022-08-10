@@ -48,6 +48,14 @@ fn tokenize_delimiter(s: &str) -> IResult<&str, Token> {
     }
 }
 
+fn tokenize_boolean(s: &str) -> IResult<&str, Token> {
+    match alt((tag("true"), tag("false")))(s)? {
+        (s, "true") => Ok((s, Token::True)),
+        (s, "false") => Ok((s, Token::False)),
+        (s, _) => Err(Err::Error(Error::new(s, ErrorKind::Char))),
+    }
+}
+
 fn tokenize_keyword(s: &str) -> IResult<&str, Token> {
     match tuple((
         alt((
@@ -56,6 +64,7 @@ fn tokenize_keyword(s: &str) -> IResult<&str, Token> {
             tag("if"),
             tag("else"),
             tag("let"),
+            tag("global"),
         )),
         alt((space1, peek(tokenize_delimiter_str))),
     ))(s)?
@@ -65,6 +74,7 @@ fn tokenize_keyword(s: &str) -> IResult<&str, Token> {
         (s, ("if", _)) => Ok((s, Token::Keyword(Box::new(Keyword::If)))),
         (s, ("else", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Else)))),
         (s, ("let", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Let)))),
+        (s, ("global", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Global)))),
         (s, _) => Err(Err::Error(Error::new(s, ErrorKind::Char))),
     }
 }
@@ -232,6 +242,11 @@ mod tokenizer_test {
     fn test_tokenize_complex2() {
         test_tokenize_1(
             vec![
+                Token::Keyword(Box::new(Keyword::Proc)),
+                Token::Ident("main".to_string()),
+                Token::Delim(Box::new(Delimiter::OpenParen)),
+                Token::Delim(Box::new(Delimiter::CloseParen)),
+                Token::Delim(Box::new(Delimiter::OpenBrace)),
                 Token::Keyword(Box::new(Keyword::Let)),
                 Token::Ident("v".to_string()),
                 Token::Assign,
@@ -242,9 +257,10 @@ mod tokenizer_test {
                 Token::Delim(Box::new(Delimiter::CloseParen)),
                 Token::Op(Box::new(BinOp::Asterisk)),
                 Token::Float(Float(3.0)),
+                Token::Delim(Box::new(Delimiter::CloseBrace)),
                 Token::Eof,
             ],
-            r"let v = (1.0 + 2.0) * 3.0",
+            r"proc main() { let v = (1.0 + 2.0) * 3.0 }",
         )
     }
 

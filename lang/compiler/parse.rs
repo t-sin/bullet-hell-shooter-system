@@ -462,7 +462,7 @@ fn parse_expr<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>
 
 fn parse_global_define<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, ParseError<Input<'a>>> {
     match tuple((
-        token(Token::Keyword(Box::new(Keyword::Let))),
+        token(Token::Keyword(Box::new(Keyword::Global))),
         token_type(Token::Ident("".to_string())),
         token(Token::Assign),
         parse_expr,
@@ -471,7 +471,15 @@ fn parse_global_define<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, Parse
     {
         Ok((t, (_, Token::Ident(target_name), _, expr, _))) => {
             if let Some(name) = make_symbol(target_name) {
-                Ok((t, SyntaxTree::GlobalDefine(name, expr)))
+                match expr {
+                    Expr::Float(_) => Ok((t, SyntaxTree::GlobalDefine(name, expr))),
+                    Expr::Bool(_) => Ok((t, SyntaxTree::GlobalDefine(name, expr))),
+                    _ => Err(Err::Error(ParseError::new(
+                        t,
+                        ErrorKind::InvalidGlobalDefine,
+                        None,
+                    ))),
+                }
             } else {
                 Err(Err::Error(ParseError::new(t, ErrorKind::EmptyName, None)))
             }
@@ -589,185 +597,225 @@ mod parser_test {
     }
 
     #[test]
-    fn test_parse_global_assign() {
+    fn test_parse_global_define() {
         test_parse_1(
-            SyntaxTree::GlobalDefine(Symbol::Var(Name("a".to_string())), Expr::Float(42.0)),
-            "let a = 42.0",
+            SyntaxTree::GlobalDefine(Symbol::Var(Name("val".to_string())), Expr::Float(42.0)),
+            "global val = 42.0",
         );
     }
 
     #[test]
     fn test_parse_expr_simple_op() {
         test_parse_1(
-            SyntaxTree::GlobalDefine(
-                Symbol::Var(Name("a".to_string())),
-                Expr::Op2(
-                    Op2::Eq,
-                    Box::new(Expr::Float(1.0)),
-                    Box::new(Expr::Float(2.0)),
-                ),
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                vec![],
+                vec![Body::LexicalDefine(
+                    Symbol::Var(Name("a".to_string())),
+                    Expr::Op2(
+                        Op2::Eq,
+                        Box::new(Expr::Float(1.0)),
+                        Box::new(Expr::Float(2.0)),
+                    ),
+                )],
             ),
-            "let a = 1.0 == 2.0",
+            "proc main() {let a = 1.0 == 2.0 }",
         );
         test_parse_1(
-            SyntaxTree::GlobalDefine(
-                Symbol::Var(Name("a".to_string())),
-                Expr::Op2(
-                    Op2::Add,
-                    Box::new(Expr::Float(1.0)),
-                    Box::new(Expr::Float(2.0)),
-                ),
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                vec![],
+                vec![Body::LexicalDefine(
+                    Symbol::Var(Name("a".to_string())),
+                    Expr::Op2(
+                        Op2::Add,
+                        Box::new(Expr::Float(1.0)),
+                        Box::new(Expr::Float(2.0)),
+                    ),
+                )],
             ),
-            "let a = 1.0 + 2.0",
+            "proc main() { let a = 1.0 + 2.0 }",
         );
         test_parse_1(
-            SyntaxTree::GlobalDefine(
-                Symbol::Var(Name("a".to_string())),
-                Expr::Op2(
-                    Op2::Mul,
-                    Box::new(Expr::Float(1.0)),
-                    Box::new(Expr::Float(2.0)),
-                ),
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                vec![],
+                vec![Body::LexicalDefine(
+                    Symbol::Var(Name("a".to_string())),
+                    Expr::Op2(
+                        Op2::Mul,
+                        Box::new(Expr::Float(1.0)),
+                        Box::new(Expr::Float(2.0)),
+                    ),
+                )],
             ),
-            "let a = 1.0 * 2.0",
+            "proc main() { let a = 1.0 * 2.0 }",
         );
     }
 
     #[test]
     fn test_parse_expr_op_multiple_terms() {
         test_parse_1(
-            SyntaxTree::GlobalDefine(
-                Symbol::Var(Name("a".to_string())),
-                Expr::Op2(
-                    Op2::Sub,
-                    Box::new(Expr::Op2(
-                        Op2::Add,
-                        Box::new(Expr::Float(1.0)),
-                        Box::new(Expr::Float(2.0)),
-                    )),
-                    Box::new(Expr::Float(3.0)),
-                ),
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                vec![],
+                vec![Body::LexicalDefine(
+                    Symbol::Var(Name("a".to_string())),
+                    Expr::Op2(
+                        Op2::Sub,
+                        Box::new(Expr::Op2(
+                            Op2::Add,
+                            Box::new(Expr::Float(1.0)),
+                            Box::new(Expr::Float(2.0)),
+                        )),
+                        Box::new(Expr::Float(3.0)),
+                    ),
+                )],
             ),
-            "let a = 1.0 + 2.0 - 3.0",
+            "proc main() { let a = 1.0 + 2.0 - 3.0 }",
         );
     }
 
     #[test]
     fn test_parse_expr_op_precedence() {
         test_parse_1(
-            SyntaxTree::GlobalDefine(
-                Symbol::Var(Name("a".to_string())),
-                Expr::Op2(
-                    Op2::Eq,
-                    Box::new(Expr::Float(1.0)),
-                    Box::new(Expr::Op2(
-                        Op2::Add,
-                        Box::new(Expr::Float(2.0)),
-                        Box::new(Expr::Float(3.0)),
-                    )),
-                ),
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                vec![],
+                vec![Body::LexicalDefine(
+                    Symbol::Var(Name("a".to_string())),
+                    Expr::Op2(
+                        Op2::Eq,
+                        Box::new(Expr::Float(1.0)),
+                        Box::new(Expr::Op2(
+                            Op2::Add,
+                            Box::new(Expr::Float(2.0)),
+                            Box::new(Expr::Float(3.0)),
+                        )),
+                    ),
+                )],
             ),
-            "let a = 1.0 == 2.0 + 3.0",
+            "proc main() { let a = 1.0 == 2.0 + 3.0 }",
         );
 
         test_parse_1(
-            SyntaxTree::GlobalDefine(
-                Symbol::Var(Name("a".to_string())),
-                Expr::Op2(
-                    Op2::Eq,
-                    Box::new(Expr::Op2(
-                        Op2::Mul,
-                        Box::new(Expr::Float(-1.0)),
-                        Box::new(Expr::Float(1.0)),
-                    )),
-                    Box::new(Expr::Op2(
-                        Op2::Add,
-                        Box::new(Expr::Float(2.0)),
-                        Box::new(Expr::Float(3.0)),
-                    )),
-                ),
-            ),
-            "let a = -1.0 * 1.0 == 2.0 + 3.0",
-        );
-        test_parse_1(
-            SyntaxTree::GlobalDefine(
-                Symbol::Var(Name("a".to_string())),
-                Expr::Op2(
-                    Op2::Eq,
-                    Box::new(Expr::Op2(
-                        Op2::Add,
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                vec![],
+                vec![Body::LexicalDefine(
+                    Symbol::Var(Name("a".to_string())),
+                    Expr::Op2(
+                        Op2::Eq,
                         Box::new(Expr::Op2(
                             Op2::Mul,
+                            Box::new(Expr::Float(-1.0)),
                             Box::new(Expr::Float(1.0)),
-                            Box::new(Expr::Float(2.0)),
                         )),
-                        Box::new(Expr::Float(3.0)),
-                    )),
-                    Box::new(Expr::Float(4.0)),
-                ),
+                        Box::new(Expr::Op2(
+                            Op2::Add,
+                            Box::new(Expr::Float(2.0)),
+                            Box::new(Expr::Float(3.0)),
+                        )),
+                    ),
+                )],
             ),
-            "let a = 1.0 * 2.0 + 3.0 == 4.0",
+            "proc main() { let a = -1.0 * 1.0 == 2.0 + 3.0 }",
         );
         test_parse_1(
-            SyntaxTree::GlobalDefine(
-                Symbol::Var(Name("a".to_string())),
-                Expr::Op2(
-                    Op2::Eq,
-                    Box::new(Expr::Float(1.0)),
-                    Box::new(Expr::Op2(
-                        Op2::Add,
-                        Box::new(Expr::Float(2.0)),
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                vec![],
+                vec![Body::LexicalDefine(
+                    Symbol::Var(Name("a".to_string())),
+                    Expr::Op2(
+                        Op2::Eq,
                         Box::new(Expr::Op2(
-                            Op2::Mul,
+                            Op2::Add,
+                            Box::new(Expr::Op2(
+                                Op2::Mul,
+                                Box::new(Expr::Float(1.0)),
+                                Box::new(Expr::Float(2.0)),
+                            )),
                             Box::new(Expr::Float(3.0)),
-                            Box::new(Expr::Float(4.0)),
                         )),
-                    )),
-                ),
+                        Box::new(Expr::Float(4.0)),
+                    ),
+                )],
             ),
-            "let a = 1.0 == 2.0 + 3.0 * 4.0",
+            "proc main() { let a = 1.0 * 2.0 + 3.0 == 4.0 }",
+        );
+        test_parse_1(
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                vec![],
+                vec![Body::LexicalDefine(
+                    Symbol::Var(Name("a".to_string())),
+                    Expr::Op2(
+                        Op2::Eq,
+                        Box::new(Expr::Float(1.0)),
+                        Box::new(Expr::Op2(
+                            Op2::Add,
+                            Box::new(Expr::Float(2.0)),
+                            Box::new(Expr::Op2(
+                                Op2::Mul,
+                                Box::new(Expr::Float(3.0)),
+                                Box::new(Expr::Float(4.0)),
+                            )),
+                        )),
+                    ),
+                )],
+            ),
+            "proc main() { let a = 1.0 == 2.0 + 3.0 * 4.0 }",
         );
     }
 
     #[test]
     fn test_parse_expr_op_precedence_with_paren() {
         test_parse_1(
-            SyntaxTree::GlobalDefine(
-                Symbol::Var(Name("a".to_string())),
-                Expr::Op2(
-                    Op2::Add,
-                    Box::new(Expr::Op2(
-                        Op2::Eq,
-                        Box::new(Expr::Float(1.0)),
-                        Box::new(Expr::Float(2.0)),
-                    )),
-                    Box::new(Expr::Op2(
-                        Op2::Mul,
-                        Box::new(Expr::Float(3.0)),
-                        Box::new(Expr::Float(4.0)),
-                    )),
-                ),
-            ),
-            "let a = (1.0 == 2.0) + 3.0 * 4.0",
-        );
-        test_parse_1(
-            SyntaxTree::GlobalDefine(
-                Symbol::Var(Name("a".to_string())),
-                Expr::Op2(
-                    Op2::Mul,
-                    Box::new(Expr::Op2(
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                vec![],
+                vec![Body::LexicalDefine(
+                    Symbol::Var(Name("a".to_string())),
+                    Expr::Op2(
                         Op2::Add,
                         Box::new(Expr::Op2(
                             Op2::Eq,
                             Box::new(Expr::Float(1.0)),
                             Box::new(Expr::Float(2.0)),
                         )),
-                        Box::new(Expr::Float(3.0)),
-                    )),
-                    Box::new(Expr::Float(4.0)),
-                ),
+                        Box::new(Expr::Op2(
+                            Op2::Mul,
+                            Box::new(Expr::Float(3.0)),
+                            Box::new(Expr::Float(4.0)),
+                        )),
+                    ),
+                )],
             ),
-            "let a = ((1.0 == 2.0) + 3.0) * 4.0",
+            "proc main() { let a = (1.0 == 2.0) + 3.0 * 4.0 }",
+        );
+        test_parse_1(
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                vec![],
+                vec![Body::LexicalDefine(
+                    Symbol::Var(Name("a".to_string())),
+                    Expr::Op2(
+                        Op2::Mul,
+                        Box::new(Expr::Op2(
+                            Op2::Add,
+                            Box::new(Expr::Op2(
+                                Op2::Eq,
+                                Box::new(Expr::Float(1.0)),
+                                Box::new(Expr::Float(2.0)),
+                            )),
+                            Box::new(Expr::Float(3.0)),
+                        )),
+                        Box::new(Expr::Float(4.0)),
+                    ),
+                )],
+            ),
+            "proc main() { let a = ((1.0 == 2.0) + 3.0) * 4.0 }",
         );
     }
 

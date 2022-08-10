@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Type {
     Float,
     // String,
@@ -49,6 +49,7 @@ pub enum Body {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Float(f32),
+    Bool(bool),
     String(String),
     Symbol(Symbol),
     Op2(Op2, Box<Expr>, Box<Expr>),
