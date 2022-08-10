@@ -132,7 +132,7 @@ impl Bullet {
                 input: InputState::default(),
                 pos: glam::vec2(x, y),
             },
-            vm: VM::new(Vec::new()),
+            vm: VM::new(),
             appearance: a,
         }
     }

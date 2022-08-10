@@ -20,12 +20,12 @@ fn to_fbool(b: bool) -> Data {
 }
 
 impl VM {
-    pub fn new(memory: Vec<u8>) -> Self {
+    pub fn new() -> Self {
         VM {
             pc: 0,
             code: Vec::new().into(),
             stack: Vec::new(),
-            memory,
+            memory: Vec::from([0; 128]),
         }
     }
 
