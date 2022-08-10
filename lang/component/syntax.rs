@@ -1,8 +1,8 @@
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Type {
     Float,
-    String,
-    //    Bool,
+    // String,
+    Bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -34,6 +34,21 @@ macro_rules! stack_pop {
     };
 }
 
+macro_rules! check_memory_bound {
+    ($memory:expr, $offset:expr, $type:expr) => {
+        let bytes = match $type {
+            Type::Float => 4,
+            Type::Bool => 1,
+        };
+        let actual_bytes = $memory.len() - $offset;
+
+        if !bytes <= actual_bytes {
+            return Err(RuntimeError::OutOfMemory($offset, $type));
+        }
+    };
+}
+
 pub(crate) use bool_data;
+pub(crate) use check_memory_bound;
 pub(crate) use float_data;
 pub(crate) use stack_pop;

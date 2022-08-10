@@ -1,13 +1,28 @@
-#[derive(Debug, Copy, Clone)]
+use crate::syntax::Type;
+
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Data {
     Float(f32),
     Bool(bool),
+}
+impl Eq for Data {}
+
+impl Data {
+    pub fn r#type(&self) -> Type {
+        match self {
+            Data::Float(_) => Type::Float,
+            Data::Bool(_) => Type::Bool,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Inst {
     // system words
     Term, // tells now the program reaches the end of program successfully
+    // memory operations
+    Read(usize, Type),
+    Write(usize),
     // embedded data
     Float(f32),
     Bool(bool),

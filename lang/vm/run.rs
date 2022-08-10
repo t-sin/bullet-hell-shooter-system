@@ -1,6 +1,9 @@
 use std::collections::VecDeque;
 
-use lang_component::vm::{Data, Inst};
+use lang_component::{
+    syntax::Type,
+    vm::{Data, Inst},
+};
 
 use crate::{
     bullet::{BulletColor, BulletType, Operation, WriteState},
@@ -69,6 +72,49 @@ impl VM {
             Some(inst) => {
                 match inst {
                     Inst::Term => Ok(Terminated(true)),
+                    Inst::Read(offset, r#type) => {
+                        let offset = *offset;
+                        check_memory_bound!(self.memory, offset, *r#type);
+
+                        match r#type {
+                            Type::Float => {
+                                let le_4bytes: Result<[u8; 4], _> =
+                                    self.memory.as_slice()[offset..].try_into();
+                                if let Err(err) = le_4bytes {
+                                    return Err(RuntimeError::CannotDecodeFloat(err));
+                                }
+                                let f = f32::from_le_bytes(le_4bytes.unwrap());
+                                self.stack.push(Data::Float(f));
+                            }
+                            Type::Bool => {
+                                let u8_bool = *self.memory.get(offset).unwrap();
+                                self.stack.push(Data::Bool(u8_bool != 0));
+                            }
+                        }
+
+                        Ok(Terminated(false))
+                    }
+                    Inst::Write(offset) => {
+                        let data = stack_pop!(self.stack);
+                        let offset = *offset;
+                        check_memory_bound!(self.memory, offset, data.r#type());
+
+                        match data {
+                            Data::Float(f) => {
+                                let le_4bytes = f.to_le_bytes();
+                                for (idx, byte) in
+                                    self.memory.as_mut_slice()[offset..4].iter_mut().enumerate()
+                                {
+                                    *byte = le_4bytes[idx];
+                                }
+                            }
+                            Data::Bool(b) => {
+                                self.memory[offset] = if b { 1 } else { 0 };
+                            }
+                        };
+
+                        Ok(Terminated(false))
+                    }
                     Inst::Float(f) => {
                         self.stack.push(Data::Float(*f));
                         Ok(Terminated(false))
