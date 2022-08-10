@@ -11,6 +11,19 @@ macro_rules! float_data {
     };
 }
 
+macro_rules! bool_data {
+    ($data:ident) => {
+        if let Data::Bool(b) = $data {
+            b
+        } else {
+            return Err(RuntimeError::TypeMismatched(
+                $data.clone(),
+                "bool".to_string(),
+            ));
+        }
+    };
+}
+
 macro_rules! stack_pop {
     ($stack:expr) => {
         if let Some(d) = $stack.pop() {
@@ -21,5 +34,6 @@ macro_rules! stack_pop {
     };
 }
 
+pub(crate) use bool_data;
 pub(crate) use float_data;
 pub(crate) use stack_pop;

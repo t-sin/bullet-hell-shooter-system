@@ -1,6 +1,7 @@
 #[derive(Debug, Copy, Clone)]
 pub enum Data {
     Float(f32),
+    Bool(bool),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -9,6 +10,7 @@ pub enum Inst {
     Term, // tells now the program reaches the end of program successfully
     // embedded data
     Float(f32),
+    Bool(bool),
     // state accessors
     Get(String),
     Set(String),
@@ -29,7 +31,7 @@ pub enum Inst {
     Drop,
     Index,
     // control flows
-    JumpIfZero(usize),
+    JumpIfFalse(usize),
     Jump(usize),
 }
 

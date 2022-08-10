@@ -10,6 +10,7 @@ enum StackData {
     Var(VarInfo),
     State(VarInfo),
     Float,
+    Bool,
 }
 
 #[derive(Debug, Clone)]
@@ -141,10 +142,7 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
 
             // conditional parts
             codegen_expr(cond, state);
-            state.code.push(Inst::Float(1.0));
-
-            state.code.push(Inst::EqFloat);
-            state.code.push(Inst::JumpIfZero(true_len + 2)); //  true clause + Jump + 1
+            state.code.push(Inst::JumpIfFalse(true_len + 2)); //  true clause + Jump + 1
 
             // true clause
             state.append_code(&mut trustate);
@@ -295,9 +293,7 @@ mod codegen_test {
             vec![
                 Inst::Get("Pos:X".to_string()),
                 Inst::Get("Input:Slow".to_string()),
-                Inst::Float(1.0),
-                Inst::EqFloat,
-                Inst::JumpIfZero(3),
+                Inst::JumpIfFalse(3),
                 Inst::Float(4.0),
                 Inst::Jump(2),
                 Inst::Float(7.0),

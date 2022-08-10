@@ -11,14 +11,6 @@ use crate::{
 
 pub struct Terminated(pub bool);
 
-fn to_fbool(b: bool) -> Data {
-    if b {
-        Data::Float(1.0)
-    } else {
-        Data::Float(0.0)
-    }
-}
-
 impl VM {
     pub fn new() -> Self {
         VM {
@@ -81,16 +73,20 @@ impl VM {
                         self.stack.push(Data::Float(*f));
                         Ok(Terminated(false))
                     }
+                    Inst::Bool(b) => {
+                        self.stack.push(Data::Bool(*b));
+                        Ok(Terminated(false))
+                    }
                     Inst::Get(name) => {
                         match name.as_str() {
                             "Pos:X" => self.stack.push(Data::Float(state.pos_x())),
                             "Pos:Y" => self.stack.push(Data::Float(state.pos_y())),
-                            "Input:Up" => self.stack.push(to_fbool(state.input_up())),
-                            "Input:Down" => self.stack.push(to_fbool(state.input_down())),
-                            "Input:Left" => self.stack.push(to_fbool(state.input_left())),
-                            "Input:Right" => self.stack.push(to_fbool(state.input_right())),
-                            "Input:Shot" => self.stack.push(to_fbool(state.input_shot())),
-                            "Input:Slow" => self.stack.push(to_fbool(state.input_slow())),
+                            "Input:Up" => self.stack.push(Data::Bool(state.input_up())),
+                            "Input:Down" => self.stack.push(Data::Bool(state.input_down())),
+                            "Input:Left" => self.stack.push(Data::Bool(state.input_left())),
+                            "Input:Right" => self.stack.push(Data::Bool(state.input_right())),
+                            "Input:Shot" => self.stack.push(Data::Bool(state.input_shot())),
+                            "Input:Slow" => self.stack.push(Data::Bool(state.input_slow())),
                             _ => return Err(RuntimeError::UnknownStateName(name.to_owned())),
                         };
                         Ok(Terminated(false))
@@ -156,9 +152,9 @@ impl VM {
                         let b = float_data!(b);
 
                         if a == b {
-                            self.stack.push(Data::Float(1.0));
+                            self.stack.push(Data::Bool(true));
                         } else {
-                            self.stack.push(Data::Float(0.0));
+                            self.stack.push(Data::Bool(false));
                         }
 
                         Ok(Terminated(false))
@@ -172,9 +168,9 @@ impl VM {
                         let b = float_data!(b);
 
                         if a == b {
-                            self.stack.push(Data::Float(1.0));
+                            self.stack.push(Data::Bool(true));
                         } else {
-                            self.stack.push(Data::Float(0.0));
+                            self.stack.push(Data::Bool(false));
                         }
 
                         Ok(Terminated(false))
@@ -196,14 +192,11 @@ impl VM {
                         Ok(Terminated(false))
                     }
                     Inst::Not => {
-                        let x = stack_pop!(self.stack);
+                        let b = stack_pop!(self.stack);
                         #[allow(irrefutable_let_patterns)]
-                        let x = float_data!(x);
-                        if x == 0.0 {
-                            self.stack.push(Data::Float(1.0));
-                        } else {
-                            self.stack.push(Data::Float(0.0));
-                        }
+                        let b = bool_data!(b);
+
+                        self.stack.push(Data::Bool(!b));
                         Ok(Terminated(false))
                     }
                     Inst::Dup => {
@@ -235,11 +228,11 @@ impl VM {
                         self.pc += offset - 1;
                         Ok(Terminated(false))
                     }
-                    Inst::JumpIfZero(offset) => {
+                    Inst::JumpIfFalse(offset) => {
                         let b = stack_pop!(self.stack);
                         #[allow(irrefutable_let_patterns)]
-                        let b = float_data!(b);
-                        if b == 0.0 {
+                        let b = bool_data!(b);
+                        if b {
                             self.pc += offset - 1;
                         }
                         Ok(Terminated(false))
