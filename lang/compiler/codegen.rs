@@ -142,6 +142,8 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
 
             // conditional parts
             codegen_expr(cond, state);
+            // TODO: check if the stack top is bool?
+
             state.code.push(Inst::JumpIfFalse(true_len + 2)); //  true clause + Jump + 1
 
             // true clause
