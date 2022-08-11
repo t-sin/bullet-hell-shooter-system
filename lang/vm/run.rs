@@ -83,7 +83,7 @@ impl VM {
                         match r#type {
                             Type::Float => {
                                 let le_4bytes: Result<[u8; 4], _> =
-                                    self.memory.as_slice()[offset..].try_into();
+                                    self.memory.as_slice()[offset..offset + 4].try_into();
                                 if let Err(err) = le_4bytes {
                                     return Err(RuntimeError::CannotDecodeFloat(err));
                                 }
@@ -106,8 +106,9 @@ impl VM {
                         match data {
                             Data::Float(f) => {
                                 let le_4bytes = f.to_le_bytes();
-                                for (idx, byte) in
-                                    self.memory.as_mut_slice()[offset..4].iter_mut().enumerate()
+                                for (idx, byte) in self.memory.as_mut_slice()[offset..offset + 4]
+                                    .iter_mut()
+                                    .enumerate()
                                 {
                                     *byte = le_4bytes[idx];
                                 }

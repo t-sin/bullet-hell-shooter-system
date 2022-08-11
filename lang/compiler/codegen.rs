@@ -270,14 +270,13 @@ fn codegen_syntax_trees(stvec: Vec<SyntaxTree>, state: &mut CodegenState) {
             }
             SyntaxTree::GlobalDefine(Symbol::Var(Name(name)), expr) => match expr {
                 Expr::Float(f) => {
-                    // set _f to memory
                     let mi = MemoryInfo::new(name.to_string(), Type::Float);
                     let offset = mi.calculate_offset(&state.memory_info);
 
                     state.memory_info.push(mi);
 
                     let le_4bytes = f.to_le_bytes();
-                    for (idx, byte) in state.memory.as_mut_slice()[offset..4]
+                    for (idx, byte) in state.memory.as_mut_slice()[offset..offset + 4]
                         .iter_mut()
                         .enumerate()
                     {
