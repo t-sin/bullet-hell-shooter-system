@@ -42,7 +42,6 @@ impl StackInfo {
     }
 
     fn get(&self, name: &str) -> Option<(usize, StackData)> {
-        println!("name = {}, stack = {:?}", name, self);
         //let  len = self.info.len();
         if let Some((idx, sd)) = self.info.iter().enumerate().find(|(_, sd)| match sd {
             StackData::Var((_, n)) => n == &name[..],
@@ -130,8 +129,6 @@ impl CodegenState {
 }
 
 fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
-    println!("expr = {:?}, state = {:?}", expr, state);
-
     match expr {
         Expr::Float(f) => {
             state.code.push(Inst::Float(*f));
@@ -224,7 +221,6 @@ fn codegen_main(body: &[Body], state: &mut CodegenState) {
             Body::Assignment(sym, expr) => match sym {
                 Symbol::State(Name(name)) => {
                     if let Some(name) = get_vm_name(name) {
-                        println!("state = {:?}", state);
                         codegen_expr(expr, state);
                         let _ = state.stack.pop();
 
