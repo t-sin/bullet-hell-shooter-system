@@ -241,11 +241,9 @@ fn codegen_main(body: &[Body], state: &mut CodegenState) {
                         let offset = mi.calculate_offset(&state.memory_info);
 
                         state.code.push(Inst::Write(offset));
-
-                        return;
+                    } else {
+                        panic!("undefined variable: {}", name);
                     }
-
-                    panic!("undefined variable: {}", name);
                 }
             },
             Body::LexicalDefine(sym, expr) => {
