@@ -1,5 +1,3 @@
-use crate::syntax::Type;
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct Float(pub f32);
 impl Eq for Float {}

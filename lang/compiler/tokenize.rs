@@ -148,6 +148,7 @@ pub fn tokenize(s: &str) -> IResult<&str, Vec<Token>> {
         let (s, token) = alt((
             tokenize_float,
             tokenize_string,
+            tokenize_boolean,
             tokenize_delimiter,
             tokenize_keyword,
             tokenize_op,
@@ -343,6 +344,30 @@ mod tokenizer_test {
                 return
               }
             "###,
+        )
+    }
+
+    #[test]
+    fn test_tokenize_boolean() {
+        test_tokenize_1(
+            vec![
+                Token::Newline,
+                Token::Keyword(Box::new(Keyword::Global)),
+                Token::Ident("b1".to_string()),
+                Token::Assign,
+                Token::True,
+                Token::Newline,
+                Token::Keyword(Box::new(Keyword::Global)),
+                Token::Ident("b2".to_string()),
+                Token::Assign,
+                Token::False,
+                Token::Newline,
+                Token::Eof,
+            ],
+            r##"
+            global b1 = true
+            global b2 = false
+            "##,
         )
     }
 
