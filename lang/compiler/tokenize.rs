@@ -14,9 +14,13 @@ use lang_component::token::*;
 fn tokenize_float(s: &str) -> IResult<&str, Token> {
     let (s, minus) = opt(char('-'))(s)?;
 
-    match tuple((digit1, char('.'), digit1))(s) {
-        Ok((s, (int, _, fract))) => {
-            let fstr = format!("{}.{}", int, fract);
+    match tuple((digit1, opt(tuple((char('.'), digit1)))))(s) {
+        Ok((s, (int, fract))) => {
+            let fstr = if let Some((_, fract)) = fract {
+                format!("{}.{}", int, fract)
+            } else {
+                format!("{}.0", int)
+            };
             let mut f = fstr.parse::<f32>().unwrap();
             if let Some(_) = minus {
                 f = -1.0 * f;
@@ -196,6 +200,8 @@ mod tokenizer_test {
     fn test_tokenize_float() {
         test_tokenize_fn(&tokenize_float, Token::Float(Float(42.0)), "42.0");
         test_tokenize_fn(&tokenize_float, Token::Float(Float(-12.0)), "-12.0");
+        test_tokenize_fn(&tokenize_float, Token::Float(Float(42.0)), "42");
+        test_tokenize_fn(&tokenize_float, Token::Float(Float(-12.0)), "-12");
     }
 
     #[test]
