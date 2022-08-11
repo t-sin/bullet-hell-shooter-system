@@ -66,22 +66,42 @@ impl StackInfo {
 }
 
 #[derive(Debug)]
-struct MemoryInfo {
-    name: String,
-    r#type: Type,
+pub struct MemoryInfo {
+    pub name: String,
+    pub r#type: Type,
 }
 
 impl MemoryInfo {
     pub fn new(name: String, r#type: Type) -> Self {
         Self { name, r#type }
     }
+
+    pub fn calculate_offset(&self, info_list: &Vec<MemoryInfo>) -> usize {
+        let mut offset = 0;
+
+        for mi in info_list.iter() {
+            let size = match mi.r#type {
+                Type::Float => 4,
+                Type::Bool => 1,
+            };
+
+            if self.name == mi.name && self.r#type == mi.r#type {
+                break;
+            } else {
+                offset += size;
+            }
+        }
+
+        offset
+    }
 }
 
 #[derive(Debug)]
-struct CodegenState {
-    code: Vec<Inst>,
+pub struct CodegenState {
+    pub code: Vec<Inst>,
     stack: StackInfo,
-    memory: Vec<MemoryInfo>,
+    pub memory: Vec<u8>,
+    pub memory_info: Vec<MemoryInfo>,
 }
 
 impl CodegenState {
@@ -89,11 +109,12 @@ impl CodegenState {
         Self {
             code: Vec::new(),
             stack: StackInfo::new(),
-            memory: Vec::new(),
+            memory: Vec::from([0; 128]),
+            memory_info: Vec::new(),
         }
     }
 
-    pub fn set_parent_stack(mut self, parent: Box<StackInfo>) -> Self {
+    fn set_parent_stack(mut self, parent: Box<StackInfo>) -> Self {
         self.stack.parent = Some(parent.clone());
         self
     }
@@ -131,9 +152,23 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
                     state.stack.push(StackData::Float);
 
                     state.code.push(Inst::Index);
-                } else {
-                    panic!("undefined var: {}", name);
+
+                    return;
                 }
+
+                if let Some(mi) = state.memory_info.iter().find(|mi| mi.name == *name) {
+                    let offset = mi.calculate_offset(&state.memory_info);
+
+                    state.code.push(Inst::Read(offset, mi.r#type));
+                    state.stack.push(match mi.r#type {
+                        Type::Float => StackData::Float,
+                        Type::Bool => StackData::Bool,
+                    });
+
+                    return;
+                }
+
+                panic!("undefined variable: {}", name);
             }
         },
         Expr::Op2(op, expr1, expr2) => {
@@ -189,7 +224,20 @@ fn codegen_main(body: &[Body], state: &mut CodegenState) {
                         panic!("unknown VM state name: {}", name);
                     }
                 }
-                Symbol::Var(_) => todo! {"treat lexical variables"},
+                Symbol::Var(Name(name)) => {
+                    codegen_expr(expr, state);
+                    let _ = state.stack.pop();
+
+                    if let Some(mi) = state.memory_info.iter().find(|mi| mi.name == *name) {
+                        let offset = mi.calculate_offset(&state.memory_info);
+
+                        state.code.push(Inst::Write(offset));
+
+                        return;
+                    }
+
+                    panic!("undefined variable: {}", name);
+                }
             },
             Body::LexicalDefine(sym, expr) => {
                 let sd = match sym {
@@ -221,17 +269,28 @@ fn codegen_syntax_trees(stvec: Vec<SyntaxTree>, state: &mut CodegenState) {
                 }
             }
             SyntaxTree::GlobalDefine(Symbol::Var(Name(name)), expr) => match expr {
-                Expr::Float(_f) => {
+                Expr::Float(f) => {
                     // set _f to memory
-                    state
-                        .memory
-                        .push(MemoryInfo::new(name.to_string(), Type::Float))
+                    let mi = MemoryInfo::new(name.to_string(), Type::Float);
+                    let offset = mi.calculate_offset(&state.memory_info);
+
+                    state.memory_info.push(mi);
+
+                    let le_4bytes = f.to_le_bytes();
+                    for (idx, byte) in state.memory.as_mut_slice()[offset..4]
+                        .iter_mut()
+                        .enumerate()
+                    {
+                        *byte = le_4bytes[idx];
+                    }
                 }
-                Expr::Bool(_b) => {
-                    // set _b to memory
-                    state
-                        .memory
-                        .push(MemoryInfo::new(name.to_string(), Type::Bool))
+                Expr::Bool(b) => {
+                    let mi = MemoryInfo::new(name.to_string(), Type::Bool);
+                    let offset = mi.calculate_offset(&state.memory_info);
+
+                    state.memory_info.push(mi);
+
+                    state.memory[offset] = if *b { 1 } else { 0 };
                 }
                 _ => panic!("right side of global definition allows only literals"),
             },
@@ -240,13 +299,13 @@ fn codegen_syntax_trees(stvec: Vec<SyntaxTree>, state: &mut CodegenState) {
     }
 }
 
-pub fn codegen(source: Vec<SyntaxTree>) -> Vec<Inst> {
+pub fn codegen(source: Vec<SyntaxTree>) -> CodegenState {
     let mut state = CodegenState::new();
 
     codegen_syntax_trees(source, &mut state);
     state.code.push(Inst::Term);
 
-    state.code.clone()
+    state
 }
 
 #[cfg(test)]
@@ -261,10 +320,14 @@ mod codegen_test {
             println!("tokens: {:?}", tokens);
             if let Ok((&[], stvec)) = parse(&tokens) {
                 let actual = codegen(stvec);
-                println!("actual = {:?}\nexpected = {:?}", actual, expected);
+                println!("actual = {:?}\nexpected = {:?}", actual.code, expected);
 
-                assert_eq!(actual.len(), expected.len());
-                let eq = actual.iter().zip(expected.clone()).all(|(a, b)| *a == b);
+                assert_eq!(actual.code.len(), expected.len());
+                let eq = actual
+                    .code
+                    .iter()
+                    .zip(expected.clone())
+                    .all(|(a, b)| *a == b);
                 assert!(eq);
             } else {
                 println!("Cannot parse source: {}", string);
@@ -385,6 +448,64 @@ mod codegen_test {
               let x = 42.0
               let y = 420.0
               $px = $px + x + y
+            }
+            "##,
+        );
+    }
+
+    #[test]
+    fn test_codegen_global_variable_referencing() {
+        test_codegen(
+            vec![
+                Inst::Get("Pos:X".to_string()),
+                Inst::Read(0, Type::Float),
+                Inst::Add,
+                Inst::Set("Pos:X".to_string()),
+                Inst::Term,
+            ],
+            r##"
+            global v = 42.0
+
+            proc main() {
+              $px = $px + v
+            }
+            "##,
+        );
+        test_codegen(
+            vec![
+                Inst::Read(0, Type::Float),
+                Inst::Float(1.0),
+                Inst::Add,
+                Inst::Write(0),
+                Inst::Term,
+            ],
+            r##"
+            global v = 42.0
+
+            proc main() {
+              v = v + 1.0
+            }
+            "##,
+        );
+        test_codegen(
+            vec![
+                Inst::Float(100.0),
+                Inst::Get("Pos:X".to_string()),
+                Inst::Float(1.0),
+                Inst::Index,
+                Inst::Add,
+                Inst::Read(0, Type::Float),
+                Inst::Add,
+                Inst::Set("Pos:X".to_string()),
+                Inst::Drop,
+                Inst::Term,
+            ],
+            r##"
+            global g = 42.0
+
+            proc main() {
+              let l = 100.0
+              $px = $px + l + g
             }
             "##,
         );

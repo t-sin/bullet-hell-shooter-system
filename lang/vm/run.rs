@@ -278,7 +278,7 @@ impl VM {
                         let b = stack_pop!(self.stack);
                         #[allow(irrefutable_let_patterns)]
                         let b = bool_data!(b);
-                        if b {
+                        if !b {
                             self.pc += offset - 1;
                         }
                         Ok(Terminated(false))

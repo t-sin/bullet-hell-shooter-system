@@ -41,7 +41,7 @@ impl CompileError {
 pub fn compile(source: String) -> Result<Vec<Inst>, CompileError> {
     match tokenize(&source[..]) {
         Ok((_, tokens)) => match parse(&tokens[..]) {
-            Ok((_, stvec)) => Ok(codegen(stvec)),
+            Ok((_, stvec)) => Ok(codegen(stvec).code),
             Err(Err::Error(err)) => Err(CompileError::new(None, err.purge_input(), None)),
             Err(err) => panic!("parse error = {:?}", err),
         },
