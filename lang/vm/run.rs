@@ -28,6 +28,10 @@ impl VM {
         self.code = code.into();
     }
 
+    pub fn set_memory(&mut self, memory: Vec<u8>) {
+        self.memory = memory;
+    }
+
     pub fn run(
         &mut self,
         state: &mut dyn WriteState,

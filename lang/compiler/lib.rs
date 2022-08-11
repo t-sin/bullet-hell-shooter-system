@@ -7,7 +7,7 @@ use nom::{error::ErrorKind, Err};
 use lang_component::vm::Inst;
 
 use crate::{
-    codegen::codegen,
+    codegen::{codegen, CodegenState},
     parse::{parse, ParserError},
     tokenize::tokenize,
 };
@@ -38,10 +38,10 @@ impl CompileError {
     }
 }
 
-pub fn compile(source: String) -> Result<Vec<Inst>, CompileError> {
+pub fn compile(source: String) -> Result<CodegenState, CompileError> {
     match tokenize(&source[..]) {
         Ok((_, tokens)) => match parse(&tokens[..]) {
-            Ok((_, stvec)) => Ok(codegen(stvec).code),
+            Ok((_, stvec)) => Ok(codegen(stvec)),
             Err(Err::Error(err)) => Err(CompileError::new(None, err.purge_input(), None)),
             Err(err) => panic!("parse error = {:?}", err),
         },

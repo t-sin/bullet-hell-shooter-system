@@ -110,9 +110,9 @@ fn init_player() -> Bullet {
             }
             "##
     .to_string();
-    let compiled_player_code = compile(player_code);
-    let compiled_player_code = compiled_player_code.unwrap();
-    eprintln!("VM code = {:?}", compiled_player_code);
+    let compiled_player = compile(player_code);
+    let compiled_player = compiled_player.unwrap();
+    eprintln!("VM code = {:?}", compiled_player);
 
     let mut player = Bullet::new(
         200.0,
@@ -120,7 +120,8 @@ fn init_player() -> Bullet {
         Appearance::new(BulletType::Player, BulletColor::White),
         None,
     );
-    player.set_code(compiled_player_code.into());
+    player.set_code(compiled_player.code.into());
+    player.set_memory(compiled_player.memory);
 
     player
 }

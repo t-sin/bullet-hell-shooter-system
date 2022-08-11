@@ -141,6 +141,10 @@ impl Bullet {
         self.vm.set_code(code);
     }
 
+    pub fn set_memory(&mut self, memory: Vec<u8>) {
+        self.vm.set_memory(memory);
+    }
+
     pub fn update(&mut self, ops_queue: &mut VecDeque<Operation>) {
         if let Err(err) = VM::run(&mut self.vm, &mut self.state, ops_queue) {
             println!("VM runtime error: {:?}", err);
