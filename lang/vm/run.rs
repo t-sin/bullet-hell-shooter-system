@@ -15,23 +15,6 @@ use crate::{
 pub struct Terminated(pub bool);
 
 impl VM {
-    pub fn new() -> Self {
-        VM {
-            pc: 0,
-            code: Vec::new().into(),
-            stack: Vec::new(),
-            memory: Vec::from([0; 128]),
-        }
-    }
-
-    pub fn set_code(&mut self, code: Vec<Inst>) {
-        self.code = code.into();
-    }
-
-    pub fn set_memory(&mut self, memory: Vec<u8>) {
-        self.memory = memory;
-    }
-
     pub fn run(
         &mut self,
         state: &mut dyn WriteState,
