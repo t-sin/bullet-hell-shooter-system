@@ -65,7 +65,7 @@ impl StackInfo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MemoryInfo {
     pub name: String,
     pub r#type: Type,
@@ -116,6 +116,11 @@ impl CodegenState {
 
     fn set_parent_stack(mut self, parent: Box<StackInfo>) -> Self {
         self.stack.parent = Some(parent.clone());
+        self
+    }
+
+    fn set_memory_info(mut self, mivec: Vec<MemoryInfo>) -> Self {
+        self.memory_info = mivec;
         self
     }
 
@@ -186,9 +191,13 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
             state.stack.push(StackData::Float);
         }
         Expr::If(cond, tru, fls) => {
-            let mut trustate = CodegenState::new().set_parent_stack(Box::new(state.stack.clone()));
+            let mut trustate = CodegenState::new()
+                .set_parent_stack(Box::new(state.stack.clone()))
+                .set_memory_info(state.memory_info.clone());
             codegen_expr(tru, &mut trustate);
-            let mut flsstate = CodegenState::new().set_parent_stack(Box::new(state.stack.clone()));
+            let mut flsstate = CodegenState::new()
+                .set_parent_stack(Box::new(state.stack.clone()))
+                .set_memory_info(state.memory_info.clone());
             codegen_expr(fls, &mut flsstate);
             let true_len = trustate.code.len();
             let false_len = flsstate.code.len();
