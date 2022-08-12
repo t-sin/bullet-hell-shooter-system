@@ -65,9 +65,9 @@ impl StackInfo {
 }
 
 #[derive(Debug, Clone)]
-pub struct MemoryInfo {
-    pub name: String,
-    pub r#type: Type,
+struct MemoryInfo {
+    name: String,
+    r#type: Type,
 }
 
 impl MemoryInfo {
@@ -100,7 +100,7 @@ pub struct CodegenState {
     pub code: Vec<Inst>,
     stack: StackInfo,
     pub memory: Vec<u8>,
-    pub memory_info: Vec<MemoryInfo>,
+    memory_info: Vec<MemoryInfo>,
 }
 
 impl CodegenState {

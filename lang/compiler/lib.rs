@@ -38,10 +38,25 @@ impl CompileError {
     }
 }
 
-pub fn compile(source: String) -> Result<CodegenState, CompileError> {
+#[derive(Debug)]
+pub struct CompileResult {
+    pub code: Vec<Inst>,
+    pub memory: Vec<u8>,
+}
+
+impl CompileResult {
+    pub fn from_state(cs: CodegenState) -> Self {
+        Self {
+            code: cs.code,
+            memory: cs.memory,
+        }
+    }
+}
+
+pub fn compile(source: String) -> Result<CompileResult, CompileError> {
     match tokenize(&source[..]) {
         Ok((_, tokens)) => match parse(&tokens[..]) {
-            Ok((_, stvec)) => Ok(codegen(stvec)),
+            Ok((_, stvec)) => Ok(CompileResult::from_state(codegen(stvec))),
             Err(Err::Error(err)) => Err(CompileError::new(None, err.purge_input(), None)),
             Err(err) => panic!("parse error = {:?}", err),
         },
