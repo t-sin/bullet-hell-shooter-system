@@ -264,7 +264,7 @@ fn codegen_main(body: &[Body], state: &mut CodegenState) {
 fn codegen_syntax_trees(stvec: Vec<SyntaxTree>, state: &mut CodegenState) {
     for st in stvec.iter() {
         match st {
-            SyntaxTree::DefProc(Name(name), _, body) => {
+            SyntaxTree::DefProc(Name(name), _, _, body) => {
                 if name == "main" {
                     codegen_main(body, state)
                 } else {

@@ -9,7 +9,7 @@ use nom::{
     Err, IResult,
 };
 
-use lang_component::token::*;
+use lang_component::{syntax::Type, token::*};
 
 fn tokenize_float(s: &str) -> IResult<&str, Token> {
     let (s, minus) = opt(char('-'))(s)?;
@@ -39,7 +39,16 @@ fn tokenize_string(s: &str) -> IResult<&str, Token> {
 }
 
 fn tokenize_delimiter_str(s: &str) -> IResult<&str, &str> {
-    alt((tag("("), tag(")"), tag("{"), tag("}"), tag("\n")))(s)
+    alt((
+        tag("("),
+        tag(")"),
+        tag("{"),
+        tag("}"),
+        tag("\n"),
+        tag(":"),
+        tag(","),
+        tag("->"),
+    ))(s)
 }
 
 fn tokenize_delimiter(s: &str) -> IResult<&str, Token> {
@@ -48,6 +57,17 @@ fn tokenize_delimiter(s: &str) -> IResult<&str, Token> {
         (s, ")") => Ok((s, Token::Delim(Box::new(Delimiter::CloseParen)))),
         (s, "{") => Ok((s, Token::Delim(Box::new(Delimiter::OpenBrace)))),
         (s, "}") => Ok((s, Token::Delim(Box::new(Delimiter::CloseBrace)))),
+        (s, ":") => Ok((s, Token::Delim(Box::new(Delimiter::Colon)))),
+        (s, ",") => Ok((s, Token::Delim(Box::new(Delimiter::Camma)))),
+        (s, "->") => Ok((s, Token::Delim(Box::new(Delimiter::Arrow)))),
+        (s, _) => Err(Err::Error(Error::new(s, ErrorKind::Char))),
+    }
+}
+
+fn tokenize_type(s: &str) -> IResult<&str, Token> {
+    match alt((tag("float"), tag("bool")))(s)? {
+        (s, "float") => Ok((s, Token::Type(Box::new(Type::Float)))),
+        (s, "bool") => Ok((s, Token::Type(Box::new(Type::Bool)))),
         (s, _) => Err(Err::Error(Error::new(s, ErrorKind::Char))),
     }
 }
@@ -155,6 +175,7 @@ pub fn tokenize(s: &str) -> IResult<&str, Vec<Token>> {
             tokenize_boolean,
             tokenize_delimiter,
             tokenize_keyword,
+            tokenize_type,
             tokenize_op,
             tokenize_misc,
             tokenize_ident,
@@ -377,7 +398,35 @@ mod tokenizer_test {
         )
     }
 
-    // TODO: taking and returing values reqiures type signatures.
-    // #[test]
-    // fn test_tokenize_with_type_signatures() {}
+    #[test]
+    fn test_tokenize_with_type_signatures() {
+        test_tokenize_1(
+            vec![
+                Token::Newline,
+                Token::Keyword(Box::new(Keyword::Proc)),
+                Token::Ident("test".to_string()),
+                Token::Delim(Box::new(Delimiter::OpenParen)),
+                Token::Ident("a".to_string()),
+                Token::Delim(Box::new(Delimiter::Colon)),
+                Token::Type(Box::new(Type::Float)),
+                Token::Delim(Box::new(Delimiter::Camma)),
+                Token::Ident("b".to_string()),
+                Token::Delim(Box::new(Delimiter::Colon)),
+                Token::Type(Box::new(Type::Float)),
+                Token::Delim(Box::new(Delimiter::CloseParen)),
+                Token::Delim(Box::new(Delimiter::Arrow)),
+                Token::Type(Box::new(Type::Bool)),
+                Token::Delim(Box::new(Delimiter::OpenBrace)),
+                Token::Ident("a".to_string()),
+                Token::Op(Box::new(BinOp::Plus)),
+                Token::Ident("b".to_string()),
+                Token::Delim(Box::new(Delimiter::CloseBrace)),
+                Token::Newline,
+                Token::Eof,
+            ],
+            r##"
+            proc test(a: float, b: float) -> bool { a + b }
+            "##,
+        );
+    }
 }

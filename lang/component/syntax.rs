@@ -14,6 +14,15 @@ pub struct Arg {
     pub r#type: Type,
 }
 
+impl Arg {
+    pub fn new(name: String, r#type: Type) -> Self {
+        Self {
+            name: Name(name),
+            r#type,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Op2 {
     // precedence level 1
@@ -60,5 +69,5 @@ pub enum Expr {
 #[derive(Debug, Clone, PartialEq)]
 pub enum SyntaxTree {
     GlobalDefine(Symbol, Expr),
-    DefProc(Name, Vec<Arg>, Vec<Body>),
+    DefProc(Name, Vec<Arg>, Option<Type>, Vec<Body>),
 }

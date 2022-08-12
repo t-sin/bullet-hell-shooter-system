@@ -1,3 +1,5 @@
+use crate::syntax::Type;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Float(pub f32);
 impl Eq for Float {}
@@ -18,6 +20,9 @@ pub enum Delimiter {
     CloseParen, // ')'
     OpenBrace,  // '{'
     CloseBrace, // '}'
+    Colon,      // ':'
+    Camma,      // ','
+    Arrow,      // '->'
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,6 +52,7 @@ pub enum Token {
     Eof,
     True,
     False,
+    Type(Box<Type>),
 }
 
 pub fn token_type_eq(t1: &Token, t2: &Token) -> bool {
@@ -62,5 +68,6 @@ pub fn token_type_eq(t1: &Token, t2: &Token) -> bool {
         Token::Eof => matches!(t2, Token::Eof),
         Token::True => matches!(t2, Token::True),
         Token::False => matches!(t2, Token::False),
+        Token::Type(_) => matches!(t2, Token::Type(_)),
     }
 }

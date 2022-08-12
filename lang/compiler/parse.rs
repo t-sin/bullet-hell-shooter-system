@@ -2,7 +2,7 @@ use nom::{
     branch::alt,
     combinator::{all_consuming, map, opt, peek, rest_len},
     multi::many0,
-    sequence::{delimited, tuple},
+    sequence::{delimited, preceded, terminated, tuple},
     Err, IResult,
 };
 
@@ -498,13 +498,41 @@ fn parse_global_define<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, Parse
     }
 }
 
+fn parse_defproc_arg<'a>(t: Input<'a>) -> IResult<Input<'a>, Arg, ParseError<Input<'a>>> {
+    match tuple((
+        token_type(Token::Ident("".to_string())),
+        token(Token::Delim(Box::new(Delimiter::Colon))),
+        token_type(Token::Type(Box::new(Type::Float))),
+    ))(t)
+    {
+        Ok((t, (Token::Ident(name), _, Token::Type(r#type)))) => Ok((
+            t,
+            Arg {
+                name: Name(name.to_owned()),
+                r#type: **r#type,
+            },
+        )),
+        Ok(_) => unreachable!(),
+        Err(err) => Err(err),
+    }
+}
+
 fn parse_defproc_args<'a>(t: Input<'a>) -> IResult<Input<'a>, Vec<Arg>, ParseError<Input<'a>>> {
     match tuple((
         token(Token::Delim(Box::new(Delimiter::OpenParen))),
+        many0(terminated(
+            parse_defproc_arg,
+            token(Token::Delim(Box::new(Delimiter::Camma))),
+        )),
+        opt(parse_defproc_arg),
         token(Token::Delim(Box::new(Delimiter::CloseParen))),
     ))(t)
     {
-        Ok((t, (_, _))) => Ok((t, vec![])),
+        Ok((t, (_, mut argvec, Some(arg), _))) => {
+            argvec.push(arg);
+            Ok((t, argvec))
+        }
+        Ok((t, (_, argvec, None, _))) => Ok((t, argvec)),
         Err(err) => Err(err),
     }
 }
@@ -514,14 +542,23 @@ fn parse_defproc<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, ParseError<
         token(Token::Keyword(Box::new(Keyword::Proc))),
         token_type(Token::Ident("".to_string())),
         parse_defproc_args,
+        opt(preceded(
+            token(Token::Delim(Box::new(Delimiter::Arrow))),
+            token_type(Token::Type(Box::new(Type::Float))),
+        )),
         parse_body_block,
         alt((token(Token::Newline), peek(token(Token::Eof)))),
     ))(t)
     {
-        Ok((t, (_, Token::Ident(name), args, body, _))) => {
-            Ok((t, SyntaxTree::DefProc(Name(name.to_string()), args, body)))
-        }
-        Ok((t, (_, _, _, _, _))) => Err(Err::Error(ParseError::new(
+        Ok((t, (_, Token::Ident(name), args, Some(Token::Type(r#type)), body, _))) => Ok((
+            t,
+            SyntaxTree::DefProc(Name(name.to_string()), args, Some(**r#type), body),
+        )),
+        Ok((t, (_, Token::Ident(name), args, None, body, _))) => Ok((
+            t,
+            SyntaxTree::DefProc(Name(name.to_string()), args, None, body),
+        )),
+        Ok((t, (_, _, _, _, _, _))) => Err(Err::Error(ParseError::new(
             t,
             ErrorKind::InvalidDefProc,
             None,
@@ -610,6 +647,7 @@ mod parser_test {
             SyntaxTree::DefProc(
                 Name("main".to_string()),
                 vec![],
+                None,
                 vec![Body::LexicalDefine(
                     Symbol::Var(Name("a".to_string())),
                     Expr::Op2(
@@ -625,6 +663,7 @@ mod parser_test {
             SyntaxTree::DefProc(
                 Name("main".to_string()),
                 vec![],
+                None,
                 vec![Body::LexicalDefine(
                     Symbol::Var(Name("a".to_string())),
                     Expr::Op2(
@@ -640,6 +679,7 @@ mod parser_test {
             SyntaxTree::DefProc(
                 Name("main".to_string()),
                 vec![],
+                None,
                 vec![Body::LexicalDefine(
                     Symbol::Var(Name("a".to_string())),
                     Expr::Op2(
@@ -659,6 +699,7 @@ mod parser_test {
             SyntaxTree::DefProc(
                 Name("main".to_string()),
                 vec![],
+                None,
                 vec![Body::LexicalDefine(
                     Symbol::Var(Name("a".to_string())),
                     Expr::Op2(
@@ -682,6 +723,7 @@ mod parser_test {
             SyntaxTree::DefProc(
                 Name("main".to_string()),
                 vec![],
+                None,
                 vec![Body::LexicalDefine(
                     Symbol::Var(Name("a".to_string())),
                     Expr::Op2(
@@ -702,6 +744,7 @@ mod parser_test {
             SyntaxTree::DefProc(
                 Name("main".to_string()),
                 vec![],
+                None,
                 vec![Body::LexicalDefine(
                     Symbol::Var(Name("a".to_string())),
                     Expr::Op2(
@@ -725,6 +768,7 @@ mod parser_test {
             SyntaxTree::DefProc(
                 Name("main".to_string()),
                 vec![],
+                None,
                 vec![Body::LexicalDefine(
                     Symbol::Var(Name("a".to_string())),
                     Expr::Op2(
@@ -748,6 +792,7 @@ mod parser_test {
             SyntaxTree::DefProc(
                 Name("main".to_string()),
                 vec![],
+                None,
                 vec![Body::LexicalDefine(
                     Symbol::Var(Name("a".to_string())),
                     Expr::Op2(
@@ -775,6 +820,7 @@ mod parser_test {
             SyntaxTree::DefProc(
                 Name("main".to_string()),
                 vec![],
+                None,
                 vec![Body::LexicalDefine(
                     Symbol::Var(Name("a".to_string())),
                     Expr::Op2(
@@ -798,6 +844,7 @@ mod parser_test {
             SyntaxTree::DefProc(
                 Name("main".to_string()),
                 vec![],
+                None,
                 vec![Body::LexicalDefine(
                     Symbol::Var(Name("a".to_string())),
                     Expr::Op2(
@@ -822,7 +869,12 @@ mod parser_test {
     #[test]
     fn test_parse_fn_main() {
         test_parse_1(
-            SyntaxTree::DefProc(Name("main".to_string()), vec![], vec![Body::Return(None)]),
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                vec![],
+                None,
+                vec![Body::Return(None)],
+            ),
             "proc main() { return }",
         );
 
@@ -830,6 +882,7 @@ mod parser_test {
             SyntaxTree::DefProc(
                 Name("main".to_string()),
                 vec![],
+                None,
                 vec![
                     Body::Assignment(
                         Symbol::State(Name("px".to_string())),
@@ -857,6 +910,7 @@ mod parser_test {
             SyntaxTree::DefProc(
                 Name("main".to_string()),
                 vec![],
+                None,
                 vec![Body::LexicalDefine(
                     Symbol::Var(Name("dp".to_string())),
                     Expr::If(
@@ -872,6 +926,7 @@ mod parser_test {
             SyntaxTree::DefProc(
                 Name("main".to_string()),
                 vec![],
+                None,
                 vec![Body::Assignment(
                     Symbol::State(Name("px".to_string())),
                     Expr::Op2(
@@ -889,6 +944,46 @@ mod parser_test {
             proc main() {
               $px = $px + if $input_slow { 4.0 } else { 7.0 }
             }
+            "##,
+        );
+    }
+
+    #[test]
+    fn test_parse_proc_with_args_and_returns() {
+        test_parse_1(
+            SyntaxTree::DefProc(
+                Name("test".to_string()),
+                vec![
+                    Arg::new("a".to_string(), Type::Float),
+                    Arg::new("b".to_string(), Type::Float),
+                ],
+                Some(Type::Bool),
+                vec![Body::Expr(Box::new(Expr::Op2(
+                    Op2::Add,
+                    Box::new(Expr::Symbol(Symbol::Var(Name("a".to_string())))),
+                    Box::new(Expr::Symbol(Symbol::Var(Name("b".to_string())))),
+                )))],
+            ),
+            r##"
+            proc test(a: float, b: float) -> bool { a + b }
+            "##,
+        );
+        test_parse_1(
+            SyntaxTree::DefProc(
+                Name("test".to_string()),
+                vec![Arg::new("b".to_string(), Type::Bool)],
+                None,
+                vec![Body::Assignment(
+                    Symbol::State(Name("px".to_string())),
+                    Expr::If(
+                        Box::new(Expr::Symbol(Symbol::Var(Name("b".to_string())))),
+                        Box::new(Expr::Float(1.0)),
+                        Box::new(Expr::Float(2.0)),
+                    ),
+                )],
+            ),
+            r##"
+            proc test(b: bool) { $px = if b { 1 } else { 2 } }
             "##,
         );
     }
