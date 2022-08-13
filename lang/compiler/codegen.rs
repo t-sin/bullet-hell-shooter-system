@@ -128,7 +128,13 @@ impl CodegenState {
     }
 }
 
-fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
+#[derive(Debug, Clone)]
+pub enum CodegenError {
+    UnknownVMState(String),
+    UnknownVariable(String),
+}
+
+fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenError> {
     match expr {
         Expr::Float(f) => {
             state.code.push(Inst::Float(*f));
@@ -145,7 +151,7 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
                     state.code.push(Inst::Get(name));
                     state.stack.push(StackData::Float);
                 } else {
-                    panic!("unknown VM state name: {}", name);
+                    return Err(CodegenError::UnknownVMState(name.to_string()));
                 }
             }
             Symbol::Var(Name(name)) => {
@@ -155,7 +161,7 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
 
                     state.code.push(Inst::Index);
 
-                    return;
+                    return Ok(());
                 }
 
                 if let Some(mi) = state.memory_info.iter().find(|mi| mi.name == *name) {
@@ -167,16 +173,20 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
                         Type::Bool => StackData::Bool,
                     });
 
-                    return;
+                    return Ok(());
                 }
 
-                panic!("undefined variable: {}", name);
+                return Err(CodegenError::UnknownVariable(name.to_string()));
             }
         },
         Expr::Op2(op, expr1, expr2) => {
-            codegen_expr(expr1, state);
+            if let Err(err) = codegen_expr(expr1, state) {
+                return Err(err);
+            }
             let _ = state.stack.pop();
-            codegen_expr(expr2, state);
+            if let Err(err) = codegen_expr(expr2, state) {
+                return Err(err);
+            }
             let _ = state.stack.pop();
 
             state.code.push(match op {
@@ -191,16 +201,24 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
             let mut trustate = CodegenState::new()
                 .set_parent_stack(Box::new(state.stack.clone()))
                 .set_memory_info(state.memory_info.clone());
-            codegen_expr(tru, &mut trustate);
+            if let Err(err) = codegen_expr(tru, &mut trustate) {
+                return Err(err);
+            }
+
             let mut flsstate = CodegenState::new()
                 .set_parent_stack(Box::new(state.stack.clone()))
                 .set_memory_info(state.memory_info.clone());
-            codegen_expr(fls, &mut flsstate);
+            if let Err(err) = codegen_expr(fls, &mut flsstate) {
+                return Err(err);
+            }
+
             let true_len = trustate.code.len();
             let false_len = flsstate.code.len();
 
             // conditional parts
-            codegen_expr(cond, state);
+            if let Err(err) = codegen_expr(cond, state) {
+                return Err(err);
+            }
             // TODO: check if the stack top is bool?
 
             state.code.push(Inst::JumpIfFalse(true_len + 2)); //  true clause + Jump + 1
@@ -212,25 +230,31 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) {
             // false clause
             state.append_code(&mut flsstate);
         }
-    }
+    };
+
+    Ok(())
 }
 
-fn codegen_main(body: &[Body], state: &mut CodegenState) {
+fn codegen_main(body: &[Body], state: &mut CodegenState) -> Result<(), CodegenError> {
     for b in body.iter() {
         match b {
             Body::Assignment(sym, expr) => match sym {
                 Symbol::State(Name(name)) => {
                     if let Some(name) = get_vm_name(name) {
-                        codegen_expr(expr, state);
+                        if let Err(err) = codegen_expr(expr, state) {
+                            return Err(err);
+                        }
                         let _ = state.stack.pop();
 
                         state.code.push(Inst::Set(name));
                     } else {
-                        panic!("unknown VM state name: {}", name);
+                        return Err(CodegenError::UnknownVMState(name.to_string()));
                     }
                 }
                 Symbol::Var(Name(name)) => {
-                    codegen_expr(expr, state);
+                    if let Err(err) = codegen_expr(expr, state) {
+                        return Err(err);
+                    }
                     let _ = state.stack.pop();
 
                     if let Some(mi) = state.memory_info.iter().find(|mi| mi.name == *name) {
@@ -238,7 +262,7 @@ fn codegen_main(body: &[Body], state: &mut CodegenState) {
 
                         state.code.push(Inst::Write(offset));
                     } else {
-                        panic!("undefined variable: {}", name);
+                        return Err(CodegenError::UnknownVariable(name.to_string()));
                     }
                 }
             },
@@ -247,7 +271,9 @@ fn codegen_main(body: &[Body], state: &mut CodegenState) {
                     Symbol::State(Name(name)) => StackData::State((Type::Float, name.clone())),
                     Symbol::Var(Name(name)) => StackData::Var((Type::Float, name.clone())),
                 };
-                codegen_expr(expr, state);
+                if let Err(err) = codegen_expr(expr, state) {
+                    return Err(err);
+                }
                 // remove StackData::Value of expr to replace Var or State
                 let _ = state.stack.pop();
                 state.stack.push(sd);
@@ -259,14 +285,21 @@ fn codegen_main(body: &[Body], state: &mut CodegenState) {
     for _ in 0..state.stack.info.len() {
         state.code.push(Inst::Drop)
     }
+
+    Ok(())
 }
 
-fn codegen_syntax_trees(stvec: Vec<SyntaxTree>, state: &mut CodegenState) {
+fn codegen_syntax_trees(
+    stvec: Vec<SyntaxTree>,
+    state: &mut CodegenState,
+) -> Result<(), CodegenError> {
     for st in stvec.iter() {
         match st {
             SyntaxTree::DefProc(Name(name), _, _, body) => {
                 if name == "main" {
-                    codegen_main(body, state)
+                    if let Err(err) = codegen_main(body, state) {
+                        return Err(err);
+                    }
                 } else {
                     todo!("treat not-an-entrypoint functions")
                 }
@@ -296,18 +329,22 @@ fn codegen_syntax_trees(stvec: Vec<SyntaxTree>, state: &mut CodegenState) {
                 }
                 _ => panic!("right side of global definition allows only literals"),
             },
-            _ => (),
+            _ => todo!("codegen for {:?} is not implemented yet!", st),
         };
     }
+
+    Ok(())
 }
 
-pub fn codegen(source: Vec<SyntaxTree>) -> CodegenState {
+pub fn codegen(source: Vec<SyntaxTree>) -> Result<CodegenState, CodegenError> {
     let mut state = CodegenState::new();
 
-    codegen_syntax_trees(source, &mut state);
+    if let Err(err) = codegen_syntax_trees(source, &mut state) {
+        return Err(err);
+    }
     state.code.push(Inst::Term);
 
-    state
+    Ok(state)
 }
 
 #[cfg(test)]
@@ -321,16 +358,20 @@ mod codegen_test {
         if let Ok(("", tokens)) = tokenize(string) {
             println!("tokens: {:?}", tokens);
             if let Ok((&[], stvec)) = parse(&tokens) {
-                let actual = codegen(stvec);
-                println!("actual = {:?}\nexpected = {:?}", actual.code, expected);
+                if let Ok(actual) = codegen(stvec) {
+                    println!("actual = {:?}\nexpected = {:?}", actual.code, expected);
 
-                assert_eq!(actual.code.len(), expected.len());
-                let eq = actual
-                    .code
-                    .iter()
-                    .zip(expected.clone())
-                    .all(|(a, b)| *a == b);
-                assert!(eq);
+                    assert_eq!(actual.code.len(), expected.len());
+                    let eq = actual
+                        .code
+                        .iter()
+                        .zip(expected.clone())
+                        .all(|(a, b)| *a == b);
+                    assert!(eq);
+                } else {
+                    println!("Cannot codegen: {}", string);
+                    assert!(false);
+                }
             } else {
                 println!("Cannot parse source: {}", string);
                 assert!(false);

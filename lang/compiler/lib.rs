@@ -7,7 +7,7 @@ use nom::{error::ErrorKind, Err};
 use lang_component::vm::Inst;
 
 use crate::{
-    codegen::{codegen, CodegenState},
+    codegen::{codegen, CodegenError, CodegenState},
     parse::{parse, ParserError},
     tokenize::tokenize,
 };
@@ -18,24 +18,10 @@ pub struct TokenizerError {
 }
 
 #[derive(Debug)]
-pub struct CompileError {
-    pub tokenize: Option<TokenizerError>,
-    pub parse: Option<ParserError>,
-    pub codegen: Option<()>,
-}
-
-impl CompileError {
-    fn new(
-        tokenize: Option<TokenizerError>,
-        parse: Option<ParserError>,
-        codegen: Option<()>,
-    ) -> Self {
-        Self {
-            tokenize,
-            parse,
-            codegen,
-        }
-    }
+pub enum CompileError {
+    TokenizeError(TokenizerError),
+    ParseError(ParserError),
+    CodegenError(CodegenError),
 }
 
 #[derive(Debug)]
@@ -56,15 +42,16 @@ impl CompileResult {
 pub fn compile(source: String) -> Result<CompileResult, CompileError> {
     match tokenize(&source[..]) {
         Ok((_, tokens)) => match parse(&tokens[..]) {
-            Ok((_, stvec)) => Ok(CompileResult::from_state(codegen(stvec))),
-            Err(Err::Error(err)) => Err(CompileError::new(None, err.purge_input(), None)),
+            Ok((_, stvec)) => match codegen(stvec) {
+                Ok(state) => Ok(CompileResult::from_state(state)),
+                Err(err) => Err(CompileError::CodegenError(err)),
+            },
+            Err(Err::Error(err)) => Err(CompileError::ParseError(err.purge_input().unwrap())),
             Err(err) => panic!("parse error = {:?}", err),
         },
-        Err(Err::Error(err)) => Err(CompileError::new(
-            Some(TokenizerError { kind: err.code }),
-            None,
-            None,
-        )),
+        Err(Err::Error(err)) => Err(CompileError::TokenizeError(TokenizerError {
+            kind: err.code,
+        })),
         Err(err) => panic!("tokenizer error = {:?}", err),
     }
 }
