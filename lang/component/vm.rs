@@ -46,8 +46,8 @@ pub enum Inst {
     Drop,
     Index,
     // control flows
-    JumpIfFalse(usize),
-    Jump(usize),
+    JumpIfFalse(i32),
+    Jump(i32),
 }
 
 pub fn get_vm_name(state_name: &str) -> Option<String> {

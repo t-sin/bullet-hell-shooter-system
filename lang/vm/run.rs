@@ -259,22 +259,33 @@ impl VM {
                         Ok(Terminated(false))
                     }
                     Inst::Jump(offset) => {
-                        self.pc += offset - 1;
+                        let next_pc = offset - 1;
+                        if next_pc < 0 || self.code.len() as i32 <= next_pc {
+                            return Err(RuntimeError::OutOfCode(next_pc, self.code.to_vec()));
+                        }
+
+                        self.pc += next_pc as usize;
                         Ok(Terminated(false))
                     }
                     Inst::JumpIfFalse(offset) => {
                         let b = stack_pop!(self.stack);
                         #[allow(irrefutable_let_patterns)]
                         let b = bool_data!(b);
+
                         if !b {
-                            self.pc += offset - 1;
+                            let next_pc = offset - 1;
+                            if next_pc < 0 || self.code.len() as i32 <= next_pc {
+                                return Err(RuntimeError::OutOfCode(next_pc, self.code.to_vec()));
+                            }
+
+                            self.pc += next_pc as usize;
                         }
                         Ok(Terminated(false))
                     }
                 }
             }
             None => Err(RuntimeError::OutOfCode(
-                self.pc,
+                self.pc as i32,
                 Vec::from(self.code.clone()),
             )),
         }

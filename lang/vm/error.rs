@@ -7,7 +7,7 @@ pub type ExpectedTypeName = String;
 
 #[derive(Debug)]
 pub enum RuntimeError {
-    OutOfCode(usize, Vec<Inst>),
+    OutOfCode(i32, Vec<Inst>),
     OutOfMemory(usize, Type),
     StackUnderflow,
     TypeMismatched(Data, ExpectedTypeName),

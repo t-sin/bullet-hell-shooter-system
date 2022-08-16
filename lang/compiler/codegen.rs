@@ -212,8 +212,8 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
                 return Err(err);
             }
 
-            let true_len = trustate.code.len();
-            let false_len = flsstate.code.len();
+            let true_len = trustate.code.len() as i32;
+            let false_len = flsstate.code.len() as i32;
 
             // conditional parts
             if let Err(err) = codegen_expr(cond, state) {
