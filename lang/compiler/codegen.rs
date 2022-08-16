@@ -235,7 +235,7 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
     Ok(())
 }
 
-fn codegen_main(body: &[Body], state: &mut CodegenState) -> Result<(), CodegenError> {
+fn codegen_proc_body(body: &[Body], state: &mut CodegenState) -> Result<(), CodegenError> {
     for b in body.iter() {
         match b {
             Body::Assignment(sym, expr) => match sym {
@@ -297,7 +297,7 @@ fn codegen_syntax_trees(
         match st {
             SyntaxTree::DefProc(Name(name), _, _, body) => {
                 if name == "main" {
-                    if let Err(err) = codegen_main(body, state) {
+                    if let Err(err) = codegen_proc_body(body, state) {
                         return Err(err);
                     }
                 } else {
