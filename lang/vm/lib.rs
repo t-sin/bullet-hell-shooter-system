@@ -12,6 +12,7 @@ pub struct VM {
     pub pc: usize,
     pub code: Box<[Inst]>,
     pub stack: Vec<Data>,
+    pub rstack: Vec<usize>,
     pub memory: Vec<u8>,
 }
 
@@ -21,6 +22,7 @@ impl VM {
             pc: 0,
             code: Vec::new().into(),
             stack: Vec::new(),
+            rstack: Vec::new(),
             memory: Vec::from([0; 128]),
         }
     }

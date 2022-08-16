@@ -13,4 +13,5 @@ pub enum RuntimeError {
     TypeMismatched(Data, ExpectedTypeName),
     UnknownStateName(String),
     CannotDecodeFloat(std::array::TryFromSliceError),
+    ReturnStackUnderflow,
 }

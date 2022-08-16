@@ -48,6 +48,9 @@ pub enum Inst {
     // control flows
     JumpIfFalse(i32),
     Jump(i32),
+    // procedure call/return
+    Call,
+    Ret(usize),
 }
 
 pub fn get_vm_name(state_name: &str) -> Option<String> {

@@ -282,6 +282,33 @@ impl VM {
                         }
                         Ok(Terminated(false))
                     }
+                    Inst::Call => {
+                        let f = stack_pop!(self.stack);
+                        #[allow(irrefutable_let_patterns)]
+                        let offset = float_data!(f);
+                        let offset = offset as i32;
+
+                        if offset < 0 || self.code.len() as i32 <= offset {
+                            return Err(RuntimeError::OutOfCode(offset, self.code.to_vec()));
+                        }
+
+                        self.rstack.push(self.pc);
+
+                        self.pc = offset as usize;
+                        Ok(Terminated(false))
+                    }
+                    Inst::Ret(num) => {
+                        if let Some(ret) = self.rstack.pop() {
+                            for _ in 0..*num {
+                                let _ = self.stack.pop();
+                            }
+                            self.pc = ret;
+
+                            Ok(Terminated(false))
+                        } else {
+                            Err(RuntimeError::ReturnStackUnderflow)
+                        }
+                    }
                 }
             }
             None => Err(RuntimeError::OutOfCode(
