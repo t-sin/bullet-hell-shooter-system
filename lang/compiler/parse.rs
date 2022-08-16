@@ -275,11 +275,15 @@ fn parse_expr_paren<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Inp
 
 fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     match alt((
+        token(Token::True),
+        token(Token::False),
         token_type(Token::Float(Float(0.0))),
         token_type(Token::String("".to_string())),
         token_type(Token::Ident("".to_string())),
     ))(t)
     {
+        Ok((t, Token::True)) => Ok((t, Expr::Bool(true))),
+        Ok((t, Token::False)) => Ok((t, Expr::Bool(false))),
         Ok((t, Token::Float(Float(f)))) => Ok((t, Expr::Float(*f))),
         Ok((t, Token::String(s))) => Ok((t, Expr::String(s.to_string()))),
         Ok((t, Token::Ident(name))) => {
