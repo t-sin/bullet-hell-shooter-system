@@ -50,7 +50,6 @@ pub enum Symbol {
 pub enum Body {
     LexicalDefine(Symbol, Expr),
     Assignment(Symbol, Expr),
-    ProcCall(Name, Vec<Expr>),
     Return(Option<Expr>),
     Expr(Box<Expr>),
 }
@@ -64,6 +63,7 @@ pub enum Expr {
     Op2(Op2, Box<Expr>, Box<Expr>),
     // If(Box<Expr>, Vec<Body>, Vec<Body>),
     If(Box<Expr>, Box<Expr>, Box<Expr>),
+    ProcCall(Name, Vec<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -19,6 +19,7 @@ pub enum ErrorKind {
     InvalidExpr,
     InvalidDefProc,
     InvalidLexicalDefine,
+    InvalidProcCall,
     EmptyName,
     NotAnExprTerm,
 }
@@ -273,7 +274,45 @@ fn parse_expr_paren<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Inp
     }
 }
 
+fn parse_expr_proc_call<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
+    let p = match tuple((
+        token_type(Token::Ident("".to_string())),
+        delimited(
+            token(Token::Delim(Box::new(Delimiter::OpenParen))),
+            tuple((
+                many0(terminated(
+                    parse_expr,
+                    token(Token::Delim(Box::new(Delimiter::Camma))),
+                )),
+                opt(parse_expr),
+            )),
+            token(Token::Delim(Box::new(Delimiter::CloseParen))),
+        ),
+    ))(t)
+    {
+        Ok((t, (Token::Ident(name), (mut argvec, Some(arg))))) => {
+            argvec.push(arg);
+            Ok((t, Expr::ProcCall(Name(name.to_string()), argvec)))
+        }
+        Ok((t, (Token::Ident(name), (argvec, None)))) => {
+            Ok((t, Expr::ProcCall(Name(name.to_string()), argvec)))
+        }
+        Ok((t, _)) => Err(Err::Error(ParseError::new(
+            t,
+            ErrorKind::InvalidProcCall,
+            None,
+        ))),
+        Err(err) => Err(err),
+    };
+    println!("proc_call => {:?}", p);
+    p
+}
+
 fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
+    if let Ok(_) = peek(parse_expr_proc_call)(t) {
+        return parse_expr_proc_call(t);
+    }
+
     match alt((
         token(Token::True),
         token(Token::False),
@@ -988,6 +1027,69 @@ mod parser_test {
             ),
             r##"
             proc test(b: bool) { $px = if b { 1 } else { 2 } }
+            "##,
+        );
+    }
+
+    #[test]
+    fn test_parse_call_proc() {
+        test_parse_1(
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                vec![],
+                None,
+                vec![Body::Assignment(
+                    Symbol::State(Name("px".to_string())),
+                    Expr::ProcCall(Name("func".to_string()), vec![]),
+                )],
+            ),
+            r##"
+            proc main() {
+              $px = func()
+            }
+            "##,
+        );
+        test_parse_1(
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                vec![],
+                None,
+                vec![Body::Assignment(
+                    Symbol::State(Name("px".to_string())),
+                    Expr::ProcCall(Name("func".to_string()), vec![Expr::Float(1.0)]),
+                )],
+            ),
+            r##"
+            proc main() {
+              $px = func(1.0)
+            }
+            "##,
+        );
+        test_parse_1(
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                vec![],
+                None,
+                vec![Body::Assignment(
+                    Symbol::State(Name("px".to_string())),
+                    Expr::ProcCall(
+                        Name("func".to_string()),
+                        vec![
+                            Expr::Float(42.0),
+                            Expr::Bool(false),
+                            Expr::Op2(
+                                Op2::Add,
+                                Box::new(Expr::Symbol(Symbol::State(Name("px".to_string())))),
+                                Box::new(Expr::Float(10.0)),
+                            ),
+                        ],
+                    ),
+                )],
+            ),
+            r##"
+            proc main() {
+              $px = func(42.0, false, $px + 10)
+            }
             "##,
         );
     }
