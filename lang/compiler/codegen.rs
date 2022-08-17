@@ -16,6 +16,24 @@ enum StackData {
     Bool,
 }
 
+impl From<Type> for StackData {
+    fn from(t: Type) -> Self {
+        match t {
+            Type::Float => StackData::Float,
+            Type::Bool => StackData::Bool,
+        }
+    }
+}
+
+impl From<Symbol> for StackData {
+    fn from(s: Symbol) -> Self {
+        match s {
+            Symbol::State(Name(name)) => StackData::State((Type::Float, name.clone())),
+            Symbol::Var(Name(name)) => StackData::Var((Type::Float, name.clone())),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct StackInfo {
     info: Vec<StackData>,
@@ -152,6 +170,16 @@ impl CodegenState {
     }
 }
 
+macro_rules! iter_names_except_main {
+    ($state: expr) => {
+        $state
+            .proc_order
+            .borrow()
+            .iter()
+            .filter(|n| &n[..] != "main")
+    };
+}
+
 macro_rules! emit {
     ($state: expr, $inst:expr) => {
         $state.code.push($inst);
@@ -206,10 +234,7 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
                     let offset = mi.calculate_offset(state.memory_info.clone());
 
                     emit!(state, Inst::Read(offset, mi.r#type));
-                    state.stack.push(match mi.r#type {
-                        Type::Float => StackData::Float,
-                        Type::Bool => StackData::Bool,
-                    });
+                    state.stack.push(mi.r#type.into());
 
                     return Ok(());
                 }
@@ -326,10 +351,7 @@ fn codegen_proc_body(
                 }
             },
             Body::LexicalDefine(sym, expr) => {
-                let sd = match sym {
-                    Symbol::State(Name(name)) => StackData::State((Type::Float, name.clone())),
-                    Symbol::Var(Name(name)) => StackData::Var((Type::Float, name.clone())),
-                };
+                let sd: StackData = sym.clone().into();
                 if let Err(err) = codegen_expr(expr, state) {
                     return Err(err);
                 }
@@ -474,47 +496,49 @@ fn codegen_pass1_generate_proc_code(
     codegen_syntax_trees(source, state)
 }
 
-fn codegen_pass2_place_proc_code(state: &mut CodegenState) -> Result<(), CodegenError> {
-    let mut offset = 0;
-
-    if let Some(mut main_proc) = state.proc_map.borrow_mut().get_mut("main") {
-        main_proc.offset = offset;
-        for inst in main_proc.code.iter() {
-            emit!(state, inst.clone());
-            offset += 1;
+fn place_proc_into_code(
+    name: &str,
+    offset: &mut usize,
+    code: &mut Vec<Inst>,
+    proc_map: Rc<RefCell<HashMap<String, Proc>>>,
+) -> Result<(), CodegenError> {
+    if let Some(mut proc) = proc_map.borrow_mut().get_mut(name) {
+        proc.offset = *offset;
+        for inst in proc.code.iter() {
+            code.push(inst.clone());
+            *offset += 1;
         }
     } else {
         return Err(CodegenError::MainProcIsNotDefined);
     }
 
-    for name in state
-        .proc_order
-        .borrow()
-        .iter()
-        .filter(|n| &n[..] != "main")
-    {
-        if let Some(mut proc) = state.proc_map.borrow_mut().get_mut(name) {
-            proc.offset = offset;
-            for inst in proc.code.iter() {
-                emit!(state, inst.clone());
-                offset += 1;
-            }
-        } else {
-            return Err(CodegenError::MainProcIsNotDefined);
-        }
+    Ok(())
+}
+
+fn codegen_pass2_place_proc_code(state: &mut CodegenState) -> Result<(), CodegenError> {
+    let mut offset = 0;
+
+    place_proc_into_code("main", &mut offset, &mut state.code, state.proc_map.clone())?;
+
+    for name in iter_names_except_main!(state) {
+        place_proc_into_code(name, &mut offset, &mut state.code, state.proc_map.clone())?;
     }
 
     Ok(())
 }
 
-fn codegen_pass3_resolve_jumps(state: &mut CodegenState) -> Result<(), CodegenError> {
-    let proc_map = state.proc_map.borrow();
-    let proc = proc_map.get("main");
-    if let Some(main_proc) = proc {
-        let proc_head = main_proc.offset;
-        for (offset, name) in main_proc.unresolved_list.iter() {
+fn resolve_jumps_in_proc(
+    name: &str,
+    code: &mut Vec<Inst>,
+    proc_map: Rc<RefCell<HashMap<String, Proc>>>,
+) -> Result<(), CodegenError> {
+    let proc_map = proc_map.borrow();
+    let proc = proc_map.get(name);
+    if let Some(proc) = proc {
+        let proc_head = proc.offset;
+        for (offset, name) in proc.unresolved_list.iter() {
             let inst_offset = proc_head + offset;
-            let inst = state.code.get_mut(inst_offset).unwrap();
+            let inst = code.get_mut(inst_offset).unwrap();
 
             if let Some(callee) = proc_map.get(name) {
                 *inst = Inst::Float(callee.offset as f32);
@@ -524,27 +548,14 @@ fn codegen_pass3_resolve_jumps(state: &mut CodegenState) -> Result<(), CodegenEr
         return Err(CodegenError::MainProcIsNotDefined);
     }
 
-    for name in state
-        .proc_order
-        .borrow()
-        .iter()
-        .filter(|n| &n[..] != "main")
-    {
-        let proc_map = state.proc_map.borrow();
-        let proc = proc_map.get(name);
-        if let Some(proc) = proc {
-            let proc_head = proc.offset;
-            for (offset, name) in proc.unresolved_list.iter() {
-                let inst_offset = proc_head + offset;
-                let inst = state.code.get_mut(inst_offset).unwrap();
+    Ok(())
+}
 
-                if let Some(callee) = proc_map.get(name) {
-                    *inst = Inst::Float(callee.offset as f32);
-                }
-            }
-        } else {
-            return Err(CodegenError::MainProcIsNotDefined);
-        }
+fn codegen_pass3_resolve_jumps(state: &mut CodegenState) -> Result<(), CodegenError> {
+    resolve_jumps_in_proc("main", &mut state.code, state.proc_map.clone())?;
+
+    for name in iter_names_except_main!(state) {
+        resolve_jumps_in_proc(name, &mut state.code, state.proc_map.clone())?;
     }
 
     Ok(())
