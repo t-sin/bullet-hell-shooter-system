@@ -193,6 +193,8 @@ pub enum CodegenError {
     ProcAlreadyDefined(String),
     MainProcIsNotDefined,
     UndefinedProc(String),
+    GlobalDefineOnlyAllowsLiteral(Expr),
+    GlobalDefineOnlyAllowsToVar(Symbol),
 }
 
 fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenError> {
@@ -468,9 +470,13 @@ fn codegen_syntax_trees(
 
                     state.memory[offset] = if *b { 1 } else { 0 };
                 }
-                _ => panic!("right side of global definition allows only literals"),
+                expr => {
+                    return Err(CodegenError::GlobalDefineOnlyAllowsLiteral(expr.clone()));
+                }
             },
-            _ => todo!("codegen for {:?} is not implemented yet!", st),
+            SyntaxTree::GlobalDefine(sym, _) => {
+                return Err(CodegenError::GlobalDefineOnlyAllowsToVar(sym.clone()));
+            }
         };
     }
 
