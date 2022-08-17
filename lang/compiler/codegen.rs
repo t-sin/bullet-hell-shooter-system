@@ -243,12 +243,8 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
             }
         },
         Expr::Op2(op, expr1, expr2) => {
-            if let Err(err) = codegen_expr(expr1, state) {
-                return Err(err);
-            }
-            if let Err(err) = codegen_expr(expr2, state) {
-                return Err(err);
-            }
+            codegen_expr(expr1, state)?;
+            codegen_expr(expr2, state)?;
 
             emit!(
                 state,
@@ -320,9 +316,7 @@ fn codegen_proc_body(
             Body::Assignment(sym, expr) => match sym {
                 Symbol::State(Name(name)) => {
                     if let Some(name) = get_vm_name(name) {
-                        if let Err(err) = codegen_expr(expr, state) {
-                            return Err(err);
-                        }
+                        codegen_expr(expr, state)?;
                         let _ = state.stack.pop();
 
                         emit!(state, Inst::Set(name));
@@ -331,9 +325,7 @@ fn codegen_proc_body(
                     }
                 }
                 Symbol::Var(Name(name)) => {
-                    if let Err(err) = codegen_expr(expr, state) {
-                        return Err(err);
-                    }
+                    codegen_expr(expr, state)?;
                     let _ = state.stack.pop();
 
                     if let Some(mi) = state
@@ -352,9 +344,7 @@ fn codegen_proc_body(
             },
             Body::LexicalDefine(sym, expr) => {
                 let sd: StackData = sym.clone().into();
-                if let Err(err) = codegen_expr(expr, state) {
-                    return Err(err);
-                }
+                codegen_expr(expr, state)?;
                 // remove StackData::Value of expr to replace Var or State
                 let _ = state.stack.pop();
                 state.stack.push(sd);
@@ -433,9 +423,7 @@ fn codegen_proc(
     proc_state.code = vec![];
 
     let body = insert_return_to_body(&name[..], body);
-    if let Err(err) = codegen_proc_body(&name[..], args.len(), body.as_slice(), &mut proc_state) {
-        return Err(err);
-    }
+    codegen_proc_body(&name[..], args.len(), body.as_slice(), &mut proc_state)?;
 
     let mut proc = Proc::new();
     proc.signature = (args.to_vec(), ret);
