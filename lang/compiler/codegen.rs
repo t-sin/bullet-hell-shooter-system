@@ -550,7 +550,7 @@ fn codegen_pass3_resolve_jumps(state: &mut CodegenState) -> Result<(), CodegenEr
     Ok(())
 }
 
-pub fn codegen(source: Vec<SyntaxTree>) -> Result<CodegenState, CodegenError> {
+pub fn codegen(source: Vec<SyntaxTree>) -> Result<(Vec<Inst>, Vec<u8>), CodegenError> {
     let proc_map = Rc::new(RefCell::new(HashMap::new()));
     let memory_info = Rc::new(RefCell::new(Vec::new()));
     let mut state = CodegenState::new(proc_map, memory_info);
@@ -559,7 +559,7 @@ pub fn codegen(source: Vec<SyntaxTree>) -> Result<CodegenState, CodegenError> {
     codegen_pass2_place_proc_code(&mut state)?;
     codegen_pass3_resolve_jumps(&mut state)?;
 
-    Ok(state)
+    Ok((state.code, state.memory))
 }
 
 #[cfg(test)]
@@ -573,15 +573,11 @@ mod codegen_test {
         if let Ok(("", tokens)) = tokenize(string) {
             println!("tokens: {:?}", tokens);
             if let Ok((&[], stvec)) = parse(&tokens) {
-                if let Ok(actual) = codegen(stvec) {
-                    println!("actual = {:?}\nexpected = {:?}", actual.code, expected);
+                if let Ok((actual, _)) = codegen(stvec) {
+                    println!("actual = {:?}\nexpected = {:?}", actual, expected);
 
-                    assert_eq!(actual.code.len(), expected.len());
-                    let eq = actual
-                        .code
-                        .iter()
-                        .zip(expected.clone())
-                        .all(|(a, b)| *a == b);
+                    assert_eq!(actual.len(), expected.len());
+                    let eq = actual.iter().zip(expected.clone()).all(|(a, b)| *a == b);
                     assert!(eq);
                 } else {
                     println!("Cannot codegen: {}", string);

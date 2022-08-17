@@ -7,7 +7,7 @@ use nom::{error::ErrorKind, Err};
 use lang_component::vm::Inst;
 
 use crate::{
-    codegen::{codegen, CodegenError, CodegenState},
+    codegen::{codegen, CodegenError},
     parse::{parse, ParserError},
     tokenize::tokenize,
 };
@@ -31,10 +31,10 @@ pub struct CompileResult {
 }
 
 impl CompileResult {
-    pub fn from_state(cs: CodegenState) -> Self {
+    fn new(code: Vec<Inst>, memory: Vec<u8>) -> Self {
         Self {
-            code: cs.code,
-            memory: cs.memory,
+            code: code,
+            memory: memory,
         }
     }
 }
@@ -43,7 +43,7 @@ pub fn compile(source: String) -> Result<CompileResult, CompileError> {
     match tokenize(&source[..]) {
         Ok((_, tokens)) => match parse(&tokens[..]) {
             Ok((_, stvec)) => match codegen(stvec) {
-                Ok(state) => Ok(CompileResult::from_state(state)),
+                Ok((code, memory)) => Ok(CompileResult::new(code, memory)),
                 Err(err) => Err(CompileError::CodegenError(err)),
             },
             Err(Err::Error(err)) => Err(CompileError::ParseError(err.purge_input().unwrap())),
