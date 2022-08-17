@@ -35,12 +35,6 @@ impl StackInfo {
         self.info.pop()
     }
 
-    fn index(&self, n: u32) -> Option<&StackData> {
-        // TODO: consider its parent
-        let idx = self.info.len() - 1 - n as usize;
-        self.info.iter().nth(idx)
-    }
-
     fn get(&self, name: &str) -> Option<(usize, StackData)> {
         //let  len = self.info.len();
         if let Some((idx, sd)) = self.info.iter().enumerate().find(|(_, sd)| match sd {
