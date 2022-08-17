@@ -275,7 +275,7 @@ fn parse_expr_paren<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Inp
 }
 
 fn parse_expr_proc_call<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    let p = match tuple((
+    match tuple((
         token_type(Token::Ident("".to_string())),
         delimited(
             token(Token::Delim(Box::new(Delimiter::OpenParen))),
@@ -303,9 +303,7 @@ fn parse_expr_proc_call<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
             None,
         ))),
         Err(err) => Err(err),
-    };
-    println!("proc_call => {:?}", p);
-    p
+    }
 }
 
 fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
@@ -581,7 +579,7 @@ fn parse_defproc_args<'a>(t: Input<'a>) -> IResult<Input<'a>, Vec<Arg>, ParseErr
 }
 
 fn parse_defproc<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, ParseError<Input<'a>>> {
-    let p = match tuple((
+    match tuple((
         token(Token::Keyword(Box::new(Keyword::Proc))),
         token_type(Token::Ident("".to_string())),
         parse_defproc_args,
@@ -607,9 +605,7 @@ fn parse_defproc<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, ParseError<
             None,
         ))),
         Err(err) => Err(err),
-    };
-    println!("parse_defproc() = {:?}", p);
-    p
+    }
 }
 
 type Parse1Result<'a> = IResult<Input<'a>, Option<SyntaxTree>, ParseError<Input<'a>>>;
