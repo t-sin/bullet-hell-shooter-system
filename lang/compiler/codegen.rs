@@ -583,8 +583,8 @@ mod codegen_test {
 
     fn test_codegen(expected: Vec<Inst>, string: &str) {
         let mut object_states = HashMap::new();
-        object_states.insert("px".to_string(), 0);
-        object_states.insert("py".to_string(), 1);
+        object_states.insert("x".to_string(), 0);
+        object_states.insert("y".to_string(), 1);
         object_states.insert("input_slow".to_string(), 10);
         let object_states = ObjectStates(object_states);
 
@@ -618,14 +618,14 @@ mod codegen_test {
             vec![Inst::Float(1.0), Inst::Set(0), Inst::Term],
             r##"
             proc main() {
-              $px = 1.0
+              $x = 1.0
             }
             "##,
         );
     }
 
     #[test]
-    fn test_codegen_assign_binop_value_to_py() {
+    fn test_codegen_assign_binop_value_to_y() {
         test_codegen(
             vec![
                 Inst::Float(1.0),
@@ -636,7 +636,7 @@ mod codegen_test {
             ],
             r##"
             proc main() {
-              $py = 1.0 + 2.0
+              $y = 1.0 + 2.0
             }
             "##,
         );
@@ -652,7 +652,7 @@ mod codegen_test {
             ],
             r##"
             proc main() {
-              $py = 1.0 + 2.0 * 3.0
+              $y = 1.0 + 2.0 * 3.0
             }
             "##,
         );
@@ -674,7 +674,7 @@ mod codegen_test {
             ],
             r##"
             proc main() {
-              $px = $px + if $input_slow { 4.0 } else { 7.0 }
+              $x = $x + if $input_slow { 4.0 } else { 7.0 }
             }
             "##,
         );
@@ -696,7 +696,7 @@ mod codegen_test {
             r##"
             proc main() {
               let x = 42.0
-              $px = $px + x
+              $x = $x + x
             }
             "##,
         );
@@ -717,7 +717,7 @@ mod codegen_test {
             r##"
             proc main() {
               let x = 42.0
-              $px = $px + x + x
+              $x = $x + x + x
             }
             "##,
         );
@@ -741,7 +741,7 @@ mod codegen_test {
             proc main() {
               let x = 42.0
               let y = 420.0
-              $px = $px + x + y
+              $x = $x + x + y
             }
             "##,
         );
@@ -761,7 +761,7 @@ mod codegen_test {
             global v = 42.0
 
             proc main() {
-              $px = $px + v
+              $x = $x + v
             }
             "##,
         );
@@ -799,7 +799,7 @@ mod codegen_test {
 
             proc main() {
               let l = 100.0
-              $px = $px + l + g
+              $x = $x + l + g
             }
             "##,
         );
@@ -824,7 +824,7 @@ mod codegen_test {
             proc const_42() -> float { return 42 }
 
             proc main() {
-              $px = $px + const_42()
+              $x = $x + const_42()
             }
             "##,
         );
@@ -847,7 +847,7 @@ mod codegen_test {
             proc add_42(n: float) -> float { return n + 42 }
 
             proc main() {
-              $px = add_42($px)
+              $x = add_42($x)
             }
             "##,
         );
@@ -879,7 +879,7 @@ mod codegen_test {
             proc add_42(n: float) -> float { return add_10(n) + 32 }
 
             proc main() {
-              $px = add_42($px)
+              $x = add_42($x)
             }
             "##,
         );

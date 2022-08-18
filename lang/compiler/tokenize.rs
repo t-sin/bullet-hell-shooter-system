@@ -306,7 +306,7 @@ mod tokenizer_test {
                 Token::Keyword(Box::new(Keyword::Let)),
                 Token::Ident("new_x".to_string()),
                 Token::Assign,
-                Token::Ident("$px".to_string()),
+                Token::Ident("$x".to_string()),
                 Token::Op(Box::new(BinOp::Plus)),
                 Token::Float(Float(1.0)),
                 Token::Newline,
@@ -316,13 +316,13 @@ mod tokenizer_test {
                 Token::Op(Box::new(BinOp::Gt)),
                 Token::Float(Float(420.0)),
                 Token::Delim(Box::new(Delimiter::OpenBrace)),
-                Token::Ident("$px".to_string()),
+                Token::Ident("$x".to_string()),
                 Token::Assign,
                 Token::Float(Float(420.0)),
                 Token::Delim(Box::new(Delimiter::CloseBrace)),
                 Token::Keyword(Box::new(Keyword::Else)),
                 Token::Delim(Box::new(Delimiter::OpenBrace)),
-                Token::Ident("$px".to_string()),
+                Token::Ident("$x".to_string()),
                 Token::Assign,
                 Token::Ident("new_x".to_string()),
                 Token::Delim(Box::new(Delimiter::CloseBrace)),
@@ -333,9 +333,9 @@ mod tokenizer_test {
             ],
             r###"
               proc main() {
-                let new_x = $px + 1.0
+                let new_x = $x + 1.0
 
-                if new_x > 420.0 { $px = 420.0 } else { $px = new_x }
+                if new_x > 420.0 { $x = 420.0 } else { $x = new_x }
               }
             "###,
         )
@@ -355,7 +355,7 @@ mod tokenizer_test {
                 Token::Keyword(Box::new(Keyword::Let)),
                 Token::Ident("new_x".to_string()),
                 Token::Assign,
-                Token::Ident("$px".to_string()),
+                Token::Ident("$x".to_string()),
                 Token::Op(Box::new(BinOp::Plus)),
                 Token::Float(Float(1.0)),
                 Token::Newline,
@@ -367,7 +367,7 @@ mod tokenizer_test {
             ],
             r###"
               proc main() {
-                let new_x = $px + 1.0
+                let new_x = $x + 1.0
                 return
               }
             "###,

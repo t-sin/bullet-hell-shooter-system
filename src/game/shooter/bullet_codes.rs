@@ -16,10 +16,10 @@ const CODE_MAP: [(&str, &str); 1] = [(
     }
 
     proc main() {
-      $px = $px - if $input_left { velocity() } else { 0.0 }
-      $px = $px + if $input_right { velocity() } else { 0.0 }
-      $py = $py - if $input_up { velocity() } else { 0.0 }
-      $py = $py + if $input_down { velocity() } else { 0.0 }
+      $x = $x - if $input_left { velocity() } else { 0.0 }
+      $x = $x + if $input_right { velocity() } else { 0.0 }
+      $y = $y - if $input_up { velocity() } else { 0.0 }
+      $y = $y + if $input_down { velocity() } else { 0.0 }
     }
     "##,
 )];

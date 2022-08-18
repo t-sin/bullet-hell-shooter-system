@@ -87,8 +87,8 @@ macro_rules! set_bool {
 impl BulletState {
     const STATE_NAMES: [&'static str; 9] = [
         "enabled",
-        "px",
-        "py",
+        "x",
+        "y",
         "input_up",
         "input_down",
         "input_left",

@@ -924,10 +924,10 @@ mod parser_test {
                 None,
                 vec![
                     Body::Assignment(
-                        Symbol::State(Name("px".to_string())),
+                        Symbol::State(Name("x".to_string())),
                         Expr::Op2(
                             Op2::Add,
-                            Box::new(Expr::Symbol(Symbol::State(Name("px".to_string())))),
+                            Box::new(Expr::Symbol(Symbol::State(Name("x".to_string())))),
                             Box::new(Expr::Float(5.0)),
                         ),
                     ),
@@ -936,7 +936,7 @@ mod parser_test {
             ),
             r###"
             proc main() {
-              $px = $px + 5.0
+              $x = $x + 5.0
               return
             }
             "###,
@@ -967,10 +967,10 @@ mod parser_test {
                 vec![],
                 None,
                 vec![Body::Assignment(
-                    Symbol::State(Name("px".to_string())),
+                    Symbol::State(Name("x".to_string())),
                     Expr::Op2(
                         Op2::Add,
-                        Box::new(Expr::Symbol(Symbol::State(Name("px".to_string())))),
+                        Box::new(Expr::Symbol(Symbol::State(Name("x".to_string())))),
                         Box::new(Expr::If(
                             Box::new(Expr::Symbol(Symbol::State(Name("input_slow".to_string())))),
                             Box::new(Expr::Float(4.0)),
@@ -981,7 +981,7 @@ mod parser_test {
             ),
             r##"
             proc main() {
-              $px = $px + if $input_slow { 4.0 } else { 7.0 }
+              $x = $x + if $input_slow { 4.0 } else { 7.0 }
             }
             "##,
         );
@@ -1013,7 +1013,7 @@ mod parser_test {
                 vec![Arg::new("b".to_string(), Type::Bool)],
                 None,
                 vec![Body::Assignment(
-                    Symbol::State(Name("px".to_string())),
+                    Symbol::State(Name("x".to_string())),
                     Expr::If(
                         Box::new(Expr::Symbol(Symbol::Var(Name("b".to_string())))),
                         Box::new(Expr::Float(1.0)),
@@ -1022,7 +1022,7 @@ mod parser_test {
                 )],
             ),
             r##"
-            proc test(b: bool) { $px = if b { 1 } else { 2 } }
+            proc test(b: bool) { $x = if b { 1 } else { 2 } }
             "##,
         );
     }
@@ -1035,13 +1035,13 @@ mod parser_test {
                 vec![],
                 None,
                 vec![Body::Assignment(
-                    Symbol::State(Name("px".to_string())),
+                    Symbol::State(Name("x".to_string())),
                     Expr::ProcCall(Name("func".to_string()), vec![]),
                 )],
             ),
             r##"
             proc main() {
-              $px = func()
+              $x = func()
             }
             "##,
         );
@@ -1051,13 +1051,13 @@ mod parser_test {
                 vec![],
                 None,
                 vec![Body::Assignment(
-                    Symbol::State(Name("px".to_string())),
+                    Symbol::State(Name("x".to_string())),
                     Expr::ProcCall(Name("func".to_string()), vec![Expr::Float(1.0)]),
                 )],
             ),
             r##"
             proc main() {
-              $px = func(1.0)
+              $x = func(1.0)
             }
             "##,
         );
@@ -1067,7 +1067,7 @@ mod parser_test {
                 vec![],
                 None,
                 vec![Body::Assignment(
-                    Symbol::State(Name("px".to_string())),
+                    Symbol::State(Name("x".to_string())),
                     Expr::ProcCall(
                         Name("func".to_string()),
                         vec![
@@ -1075,7 +1075,7 @@ mod parser_test {
                             Expr::Bool(false),
                             Expr::Op2(
                                 Op2::Add,
-                                Box::new(Expr::Symbol(Symbol::State(Name("px".to_string())))),
+                                Box::new(Expr::Symbol(Symbol::State(Name("x".to_string())))),
                                 Box::new(Expr::Float(10.0)),
                             ),
                         ],
@@ -1084,7 +1084,7 @@ mod parser_test {
             ),
             r##"
             proc main() {
-              $px = func(42.0, false, $px + 10)
+              $x = func(42.0, false, $x + 10)
             }
             "##,
         );
