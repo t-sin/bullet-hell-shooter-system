@@ -3,10 +3,7 @@ macro_rules! float_data {
         if let Data::Float(f) = $data {
             f
         } else {
-            return Err(RuntimeError::TypeMismatched(
-                $data.clone(),
-                "float".to_string(),
-            ));
+            return Err(RuntimeError::TypeMismatched($data.clone(), Type::Float));
         }
     };
 }
@@ -16,10 +13,7 @@ macro_rules! bool_data {
         if let Data::Bool(b) = $data {
             b
         } else {
-            return Err(RuntimeError::TypeMismatched(
-                $data.clone(),
-                "bool".to_string(),
-            ));
+            return Err(RuntimeError::TypeMismatched($data.clone(), Type::Bool));
         }
     };
 }

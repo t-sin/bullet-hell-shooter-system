@@ -1,8 +1,9 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+use crate::ObjectStates;
 use lang_component::{
     syntax::{Arg, Body, Expr, Name, Op2, Symbol, SyntaxTree, Type},
-    vm::{get_vm_name, Inst},
+    vm::Inst,
 };
 
 type VarInfo = (Type, String);
@@ -144,12 +145,14 @@ pub struct CodegenState {
     pub memory: Vec<u8>,
     memory_info: Rc<RefCell<Vec<MemoryInfo>>>,
     current_unresolved: Rc<RefCell<Vec<ResolveInfo>>>,
+    object_state_ids: Rc<ObjectStates>,
 }
 
 impl CodegenState {
     fn new(
         proc_map: Rc<RefCell<HashMap<String, Proc>>>,
         memory_info: Rc<RefCell<Vec<MemoryInfo>>>,
+        object_state_ids: Rc<ObjectStates>,
     ) -> Self {
         Self {
             current_proc: None,
@@ -160,6 +163,7 @@ impl CodegenState {
             memory: Vec::from([0; 128]),
             memory_info: memory_info,
             current_unresolved: Rc::new(RefCell::new(Vec::new())),
+            object_state_ids,
         }
     }
 
@@ -210,8 +214,8 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
         Expr::String(_) => todo!("treat strings"),
         Expr::Symbol(sym) => match sym {
             Symbol::State(Name(name)) => {
-                if let Some(name) = get_vm_name(name) {
-                    emit!(state, Inst::Get(name));
+                if let Some(id) = state.object_state_ids.get_state_id(name) {
+                    emit!(state, Inst::Get(id));
                     state.stack.push(StackData::Float);
                 } else {
                     return Err(CodegenError::UnknownVMState(name.to_string()));
@@ -317,11 +321,11 @@ fn codegen_proc_body(
         match b {
             Body::Assignment(sym, expr) => match sym {
                 Symbol::State(Name(name)) => {
-                    if let Some(name) = get_vm_name(name) {
+                    if let Some(id) = state.object_state_ids.get_state_id(name) {
                         codegen_expr(expr, state)?;
                         let _ = state.stack.pop();
 
-                        emit!(state, Inst::Set(name));
+                        emit!(state, Inst::Set(id));
                     } else {
                         return Err(CodegenError::UnknownVMState(name.to_string()));
                     }
@@ -555,10 +559,14 @@ fn codegen_pass3_resolve_jumps(state: &mut CodegenState) -> Result<(), CodegenEr
     Ok(())
 }
 
-pub fn codegen(source: Vec<SyntaxTree>) -> Result<(Vec<Inst>, Vec<u8>), CodegenError> {
+pub fn codegen(
+    source: Vec<SyntaxTree>,
+    state_map: ObjectStates,
+) -> Result<(Vec<Inst>, Vec<u8>), CodegenError> {
     let proc_map = Rc::new(RefCell::new(HashMap::new()));
     let memory_info = Rc::new(RefCell::new(Vec::new()));
-    let mut state = CodegenState::new(proc_map, memory_info);
+    let state_map = Rc::new(state_map);
+    let mut state = CodegenState::new(proc_map, memory_info, state_map);
 
     codegen_pass1_generate_proc_code(source, &mut state)?;
     codegen_pass2_place_proc_code(&mut state)?;
@@ -574,11 +582,17 @@ mod codegen_test {
     use super::*;
 
     fn test_codegen(expected: Vec<Inst>, string: &str) {
+        let mut object_states = HashMap::new();
+        object_states.insert("px".to_string(), 0);
+        object_states.insert("py".to_string(), 1);
+        object_states.insert("input_slow".to_string(), 10);
+        let object_states = ObjectStates(object_states);
+
         println!("text: {:?}", string);
         if let Ok(("", tokens)) = tokenize(string) {
             println!("tokens: {:?}", tokens);
             if let Ok((&[], stvec)) = parse(&tokens) {
-                if let Ok((actual, _)) = codegen(stvec) {
+                if let Ok((actual, _)) = codegen(stvec, object_states) {
                     println!("actual = {:?}\nexpected = {:?}", actual, expected);
 
                     assert_eq!(actual.len(), expected.len());
@@ -601,7 +615,7 @@ mod codegen_test {
     #[test]
     fn test_codegen_assign_value_to_px() {
         test_codegen(
-            vec![Inst::Float(1.0), Inst::Set("Pos:X".to_string()), Inst::Term],
+            vec![Inst::Float(1.0), Inst::Set(0), Inst::Term],
             r##"
             proc main() {
               $px = 1.0
@@ -617,7 +631,7 @@ mod codegen_test {
                 Inst::Float(1.0),
                 Inst::Float(2.0),
                 Inst::Add,
-                Inst::Set("Pos:Y".to_string()),
+                Inst::Set(1),
                 Inst::Term,
             ],
             r##"
@@ -633,7 +647,7 @@ mod codegen_test {
                 Inst::Float(3.0),
                 Inst::Mul,
                 Inst::Add,
-                Inst::Set("Pos:Y".to_string()),
+                Inst::Set(1),
                 Inst::Term,
             ],
             r##"
@@ -648,14 +662,14 @@ mod codegen_test {
     fn test_codegen_assign_value_with_if_expr() {
         test_codegen(
             vec![
-                Inst::Get("Pos:X".to_string()),
-                Inst::Get("Input:Slow".to_string()),
+                Inst::Get(0),
+                Inst::Get(10),
                 Inst::JumpIfFalse(3),
                 Inst::Float(4.0),
                 Inst::Jump(2),
                 Inst::Float(7.0),
                 Inst::Add,
-                Inst::Set("Pos:X".to_string()),
+                Inst::Set(0),
                 Inst::Term,
             ],
             r##"
@@ -671,11 +685,11 @@ mod codegen_test {
         test_codegen(
             vec![
                 Inst::Float(42.0),
-                Inst::Get("Pos:X".to_string()),
+                Inst::Get(0),
                 Inst::Float(1.0),
                 Inst::Index,
                 Inst::Add,
-                Inst::Set("Pos:X".to_string()),
+                Inst::Set(0),
                 Inst::Drop,
                 Inst::Term,
             ],
@@ -689,14 +703,14 @@ mod codegen_test {
         test_codegen(
             vec![
                 Inst::Float(42.0),
-                Inst::Get("Pos:X".to_string()),
+                Inst::Get(0),
                 Inst::Float(1.0),
                 Inst::Index,
                 Inst::Add,
                 Inst::Float(1.0),
                 Inst::Index,
                 Inst::Add,
-                Inst::Set("Pos:X".to_string()),
+                Inst::Set(0),
                 Inst::Drop,
                 Inst::Term,
             ],
@@ -711,14 +725,14 @@ mod codegen_test {
             vec![
                 Inst::Float(42.0),
                 Inst::Float(420.0),
-                Inst::Get("Pos:X".to_string()),
+                Inst::Get(0),
                 Inst::Float(2.0),
                 Inst::Index,
                 Inst::Add,
                 Inst::Float(1.0),
                 Inst::Index,
                 Inst::Add,
-                Inst::Set("Pos:X".to_string()),
+                Inst::Set(0),
                 Inst::Drop,
                 Inst::Drop,
                 Inst::Term,
@@ -737,10 +751,10 @@ mod codegen_test {
     fn test_codegen_global_variable_referencing() {
         test_codegen(
             vec![
-                Inst::Get("Pos:X".to_string()),
+                Inst::Get(0),
                 Inst::Read(0, Type::Float),
                 Inst::Add,
-                Inst::Set("Pos:X".to_string()),
+                Inst::Set(0),
                 Inst::Term,
             ],
             r##"
@@ -770,13 +784,13 @@ mod codegen_test {
         test_codegen(
             vec![
                 Inst::Float(100.0),
-                Inst::Get("Pos:X".to_string()),
+                Inst::Get(0),
                 Inst::Float(1.0),
                 Inst::Index,
                 Inst::Add,
                 Inst::Read(0, Type::Float),
                 Inst::Add,
-                Inst::Set("Pos:X".to_string()),
+                Inst::Set(0),
                 Inst::Drop,
                 Inst::Term,
             ],
@@ -796,11 +810,11 @@ mod codegen_test {
         test_codegen(
             vec![
                 // proc main()
-                Inst::Get("Pos:X".to_string()),
+                Inst::Get(0),
                 Inst::Float(6.0), // address of proc
                 Inst::Call,
                 Inst::Add,
-                Inst::Set("Pos:X".to_string()),
+                Inst::Set(0),
                 Inst::Term,
                 // proc const42() -> float
                 Inst::Float(42.0),
@@ -817,10 +831,10 @@ mod codegen_test {
         test_codegen(
             vec![
                 // proc main()
-                Inst::Get("Pos:X".to_string()),
+                Inst::Get(0),
                 Inst::Float(5.0), // address of proc
                 Inst::Call,
-                Inst::Set("Pos:X".to_string()),
+                Inst::Set(0),
                 Inst::Term,
                 // proc add_42() -> float
                 Inst::Float(0.0),
@@ -840,10 +854,10 @@ mod codegen_test {
         test_codegen(
             vec![
                 // proc main()
-                Inst::Get("Pos:X".to_string()),
+                Inst::Get(0),
                 Inst::Float(10.0), // address of add_42()
                 Inst::Call,
-                Inst::Set("Pos:X".to_string()),
+                Inst::Set(0),
                 Inst::Term,
                 // proc add_10() -> float
                 Inst::Float(0.0),

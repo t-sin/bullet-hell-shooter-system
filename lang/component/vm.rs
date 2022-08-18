@@ -27,8 +27,8 @@ pub enum Inst {
     Float(f32),
     Bool(bool),
     // state accessors
-    Get(String),
-    Set(String),
+    Get(usize),
+    Set(usize),
     // external operations
     Fire(String),
     // arithmetics

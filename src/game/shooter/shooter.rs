@@ -4,10 +4,10 @@ use ggez::{event::EventHandler, Context, GameResult};
 
 use lang_compiler::compile;
 use lang_component::vm::Inst;
-use lang_vm::bullet::{BulletColor, BulletType, Operation, WriteState};
+use lang_vm::bullet::{BulletColor, BulletType, Operation};
 
 use super::{
-    bullet::{Appearance, Bullet, InputState},
+    bullet::{Appearance, Bullet, BulletState, InputState},
     SceneDrawable,
 };
 
@@ -57,8 +57,8 @@ impl BulletVec {
                 self.next_disabled = b.next;
                 b.next = None;
 
-                b.state.set_pos_x(x);
-                b.state.set_pos_y(y);
+                b.state.pos.x = x;
+                b.state.pos.y = y;
                 b.set_code(code);
                 b.appearance.r#type = r#type;
                 b.appearance.color = color;
@@ -115,7 +115,7 @@ fn init_player() -> Bullet {
             }
             "##
     .to_string();
-    let compiled_player = compile(player_code);
+    let compiled_player = compile(player_code, BulletState::state_id_map());
     let compiled_player = compiled_player.unwrap();
     eprintln!("VM code = {:?}", compiled_player);
 
@@ -146,12 +146,12 @@ impl Shooter {
 
     pub fn input(&mut self, input: &Input) {
         match input {
-            Input::Up => self.player.state.set_input_up(true),
-            Input::Down => self.player.state.set_input_down(true),
-            Input::Left => self.player.state.set_input_left(true),
-            Input::Right => self.player.state.set_input_right(true),
-            Input::Shot => self.player.state.set_input_shot(true),
-            Input::Slow => self.player.state.set_input_slow(true),
+            Input::Up => self.player.state.input.up = true,
+            Input::Down => self.player.state.input.down = true,
+            Input::Left => self.player.state.input.left = true,
+            Input::Right => self.player.state.input.right = true,
+            Input::Shot => self.player.state.input.shot = true,
+            Input::Slow => self.player.state.input.slow = true,
         }
     }
 }

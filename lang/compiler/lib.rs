@@ -2,6 +2,8 @@ mod codegen;
 mod parse;
 mod tokenize;
 
+use std::collections::HashMap;
+
 use nom::{error::ErrorKind, Err};
 
 use lang_component::vm::Inst;
@@ -39,10 +41,22 @@ impl CompileResult {
     }
 }
 
-pub fn compile(source: String) -> Result<CompileResult, CompileError> {
+#[derive(Debug)]
+pub struct ObjectStates(pub HashMap<String, usize>);
+
+impl ObjectStates {
+    pub fn get_state_id(&self, name: &str) -> Option<usize> {
+        self.0.get(name).copied()
+    }
+}
+
+pub fn compile(
+    source: String,
+    state_map: HashMap<String, usize>,
+) -> Result<CompileResult, CompileError> {
     match tokenize(&source[..]) {
         Ok((_, tokens)) => match parse(&tokens[..]) {
-            Ok((_, stvec)) => match codegen(stvec) {
+            Ok((_, stvec)) => match codegen(stvec, ObjectStates(state_map)) {
                 Ok((code, memory)) => Ok(CompileResult::new(code, memory)),
                 Err(err) => Err(CompileError::CodegenError(err)),
             },

@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 use ggez::{
     graphics::{
@@ -14,9 +14,12 @@ use ggez::{
 };
 use glam;
 
-use lang_component::vm::Inst;
+use lang_component::{
+    syntax::Type,
+    vm::{Data, Inst},
+};
 use lang_vm::{
-    bullet::{BulletColor, BulletType, Operation, ReadState, WriteState},
+    bullet::{BulletColor, BulletType, Operation, State},
     VM,
 };
 
@@ -57,62 +60,108 @@ impl Default for InputState {
 }
 
 pub struct BulletState {
+    getters: &'static [&'static dyn Fn(&BulletState) -> Data],
+    setters: &'static [&'static dyn Fn(&mut BulletState, Data) -> Result<(), Type>],
     pub enabled: bool,
     pub input: InputState,
     pub pos: glam::Vec2,
 }
 
-impl ReadState for BulletState {
-    fn pos_x(&self) -> f32 {
-        self.pos.x
+macro_rules! set_float {
+    ($state:expr, $target: expr, $d:expr) => {
+        if let Data::Float(f) = $d {
+            $target = f;
+            Ok(())
+        } else {
+            Err(Type::Float)
+        }
+    };
+}
+
+macro_rules! set_bool {
+    ($state:expr, $target: expr, $d:expr) => {
+        if let Data::Bool(b) = $d {
+            $target = b;
+            Ok(())
+        } else {
+            Err(Type::Bool)
+        }
+    };
+}
+
+impl BulletState {
+    const STATE_NAMES: [&'static str; 9] = [
+        "enabled",
+        "px",
+        "py",
+        "input_up",
+        "input_down",
+        "input_left",
+        "input_right",
+        "input_shot",
+        "input_slow",
+    ];
+    const STATE_GETTERS: [&'static dyn Fn(&BulletState) -> Data; 9] = [
+        &|state: &BulletState| Data::Bool(state.enabled),
+        &|state: &BulletState| Data::Float(state.pos.x),
+        &|state: &BulletState| Data::Float(state.pos.y),
+        &|state: &BulletState| Data::Bool(state.input.up),
+        &|state: &BulletState| Data::Bool(state.input.down),
+        &|state: &BulletState| Data::Bool(state.input.left),
+        &|state: &BulletState| Data::Bool(state.input.right),
+        &|state: &BulletState| Data::Bool(state.input.shot),
+        &|state: &BulletState| Data::Bool(state.input.slow),
+    ];
+    const STATE_SETTERS: [&'static dyn Fn(&mut BulletState, Data) -> Result<(), Type>; 9] = [
+        &|state: &mut BulletState, d: Data| set_bool!(state, state.enabled, d),
+        &|state: &mut BulletState, d: Data| set_float!(state, state.pos.x, d),
+        &|state: &mut BulletState, d: Data| set_float!(state, state.pos.y, d),
+        &|state: &mut BulletState, d: Data| set_bool!(state, state.input.up, d),
+        &|state: &mut BulletState, d: Data| set_bool!(state, state.input.down, d),
+        &|state: &mut BulletState, d: Data| set_bool!(state, state.input.left, d),
+        &|state: &mut BulletState, d: Data| set_bool!(state, state.input.right, d),
+        &|state: &mut BulletState, d: Data| set_bool!(state, state.input.shot, d),
+        &|state: &mut BulletState, d: Data| set_bool!(state, state.input.slow, d),
+    ];
+
+    pub fn new(x: f32, y: f32) -> Self {
+        Self {
+            getters: &Self::STATE_GETTERS,
+            setters: &Self::STATE_SETTERS,
+            enabled: false,
+            input: InputState::default(),
+            pos: glam::vec2(x, y),
+        }
     }
-    fn pos_y(&self) -> f32 {
-        self.pos.y
-    }
-    fn input_up(&self) -> bool {
-        self.input.up
-    }
-    fn input_down(&self) -> bool {
-        self.input.down
-    }
-    fn input_left(&self) -> bool {
-        self.input.left
-    }
-    fn input_right(&self) -> bool {
-        self.input.right
-    }
-    fn input_shot(&self) -> bool {
-        self.input.shot
-    }
-    fn input_slow(&self) -> bool {
-        self.input.slow
+
+    pub fn state_id_map() -> HashMap<String, usize> {
+        let mut map = HashMap::new();
+        for (idx, s) in Self::STATE_NAMES.iter().enumerate() {
+            map.insert(s.to_string(), idx);
+        }
+        map
     }
 }
 
-impl WriteState for BulletState {
-    fn set_pos_x(&mut self, f: f32) {
-        self.pos.x = f;
+impl State for BulletState {
+    fn get(&self, id: usize) -> Option<Data> {
+        if let Some(getter) = self.getters.get(id) {
+            Some(getter(self))
+        } else {
+            None
+        }
     }
-    fn set_pos_y(&mut self, f: f32) {
-        self.pos.y = f;
-    }
-    fn set_input_up(&mut self, b: bool) {
-        self.input.up = b;
-    }
-    fn set_input_down(&mut self, b: bool) {
-        self.input.down = b;
-    }
-    fn set_input_left(&mut self, b: bool) {
-        self.input.left = b;
-    }
-    fn set_input_right(&mut self, b: bool) {
-        self.input.right = b;
-    }
-    fn set_input_shot(&mut self, b: bool) {
-        self.input.shot = b;
-    }
-    fn set_input_slow(&mut self, b: bool) {
-        self.input.slow = b;
+
+    fn set(&mut self, id: usize, data: Data) -> Result<(), Option<Type>> {
+        if let Some(setter) = self.setters.get(id) {
+            if let Err(r#type) = setter(self, data) {
+                Err(Some(r#type))
+            } else {
+                Ok(())
+            }
+        } else {
+            Err(None)
+        }
     }
 }
 
@@ -127,11 +176,7 @@ impl Bullet {
     pub fn new(x: f32, y: f32, a: Appearance, next: Option<usize>) -> Self {
         Self {
             next,
-            state: BulletState {
-                enabled: false,
-                input: InputState::default(),
-                pos: glam::vec2(x, y),
-            },
+            state: BulletState::new(x, y),
             vm: VM::new(),
             appearance: a,
         }
