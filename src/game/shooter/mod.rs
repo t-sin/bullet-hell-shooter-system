@@ -15,6 +15,8 @@ use ggez::{
 use glam;
 
 mod bullet;
+mod bullet_pool;
+mod player;
 mod shooter;
 
 use crate::{constant, game::Scene};

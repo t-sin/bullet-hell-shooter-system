@@ -1,30 +1,19 @@
-use std::collections::VecDeque;
-
 use lang_component::{
     syntax::Type,
     vm::{Data, Inst},
 };
 
-use crate::{
-    bullet::{BulletColor, BulletType, Operation, State},
-    error::RuntimeError,
-    r#macro::*,
-    VM,
-};
+use crate::{bullet::State, error::RuntimeError, r#macro::*, VM};
 
 pub struct Terminated(pub bool);
 
 impl VM {
-    pub fn run(
-        &mut self,
-        state: &mut dyn State,
-        ops_queue: &mut VecDeque<Operation>,
-    ) -> Result<(), RuntimeError> {
+    pub fn run(&mut self, state: &mut dyn State) -> Result<(), RuntimeError> {
         //self.stack.clear();
         self.pc = 0;
 
         loop {
-            match self.run1(state, ops_queue) {
+            match self.run1(state) {
                 Ok(terminated) => {
                     if terminated.0 {
                         break;
@@ -41,11 +30,7 @@ impl VM {
         Ok(())
     }
 
-    fn run1(
-        &mut self,
-        state: &mut dyn State,
-        ops_queue: &mut VecDeque<Operation>,
-    ) -> Result<Terminated, RuntimeError> {
+    fn run1(&mut self, state: &mut dyn State) -> Result<Terminated, RuntimeError> {
         let pc = self.pc;
         let inst = self.code.get(pc);
         self.pc += 1;
@@ -129,20 +114,20 @@ impl VM {
                         _ => Ok(Terminated(false)),
                     }
                 }
-                Inst::Fire(blang_name) => {
-                    let y = stack_pop!(self.stack);
-                    let x = stack_pop!(self.stack);
-                    #[allow(irrefutable_let_patterns)]
-                    let x = float_data!(x);
-                    #[allow(irrefutable_let_patterns)]
-                    let y = float_data!(y);
-                    ops_queue.push_back(Operation::PutBullet(
-                        x,
-                        y,
-                        blang_name.to_string(),
-                        BulletType::Bullet1,
-                        BulletColor::White,
-                    ));
+                Inst::Fire(_blang_name) => {
+                    // let y = stack_pop!(self.stack);
+                    // let x = stack_pop!(self.stack);
+                    // #[allow(irrefutable_let_patterns)]
+                    // let x = float_data!(x);
+                    // #[allow(irrefutable_let_patterns)]
+                    // let y = float_data!(y);
+                    // ops_queue.push_back(Operation::PutBullet(
+                    //     x,
+                    //     y,
+                    //     blang_name.to_string(),
+                    //     BulletType::Bullet1,
+                    //     BulletColor::White,
+                    // ));
                     Ok(Terminated(false))
                 }
                 Inst::Add | Inst::Sub | Inst::Mul => {

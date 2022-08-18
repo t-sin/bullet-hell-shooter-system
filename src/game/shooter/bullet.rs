@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 use ggez::{
     graphics::{
@@ -14,14 +14,8 @@ use ggez::{
 };
 use glam;
 
-use lang_component::{
-    syntax::Type,
-    vm::{Data, Inst},
-};
-use lang_vm::{
-    bullet::{BulletColor, BulletType, Operation, State},
-    VM,
-};
+use lang_component::{syntax::Type, vm::Data};
+use lang_vm::bullet::{BulletColor, BulletType, State};
 
 use super::SceneDrawable;
 use crate::constant;
@@ -65,6 +59,7 @@ pub struct BulletState {
     pub enabled: bool,
     pub input: InputState,
     pub pos: glam::Vec2,
+    pub appearance: Appearance,
 }
 
 macro_rules! set_float {
@@ -124,13 +119,14 @@ impl BulletState {
         &|state: &mut BulletState, d: Data| set_bool!(state, state.input.slow, d),
     ];
 
-    pub fn new(x: f32, y: f32) -> Self {
+    pub fn new(x: f32, y: f32, atype: BulletType, acolor: BulletColor) -> Self {
         Self {
             getters: &Self::STATE_GETTERS,
             setters: &Self::STATE_SETTERS,
             enabled: false,
             input: InputState::default(),
             pos: glam::vec2(x, y),
+            appearance: Appearance::new(atype, acolor),
         }
     }
 
@@ -165,44 +161,12 @@ impl State for BulletState {
     }
 }
 
-pub struct Bullet {
-    pub next: Option<usize>,
-    pub state: BulletState,
-    vm: VM,
-    pub appearance: Appearance,
-}
-
-impl Bullet {
-    pub fn new(x: f32, y: f32, a: Appearance, next: Option<usize>) -> Self {
-        Self {
-            next,
-            state: BulletState::new(x, y),
-            vm: VM::new(),
-            appearance: a,
-        }
-    }
-
-    pub fn set_code(&mut self, code: Vec<Inst>) {
-        self.vm.set_code(code);
-    }
-
-    pub fn set_memory(&mut self, memory: Vec<u8>) {
-        self.vm.set_memory(memory);
-    }
-
-    pub fn update(&mut self, ops_queue: &mut VecDeque<Operation>) {
-        if let Err(err) = VM::run(&mut self.vm, &mut self.state, ops_queue) {
-            println!("VM runtime error: {:?}", err);
-        }
-    }
-}
-
-impl SceneDrawable for Bullet {
+impl SceneDrawable for BulletState {
     fn draw(&self, ctx: &mut Context) -> GameResult<()> {
         let color = match self.appearance.color {
             BulletColor::White => Color::from_rgb(255, 255, 255),
         };
-        let pos = self.state.pos;
+        let pos = self.pos;
         let param = DrawParam::default()
             .color(color)
             .offset([-constant::SHOOTER_OFFSET_X, -constant::SHOOTER_OFFSET_Y]);
