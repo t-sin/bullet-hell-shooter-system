@@ -1,11 +1,11 @@
 use ggez::{Context, GameError, GameResult};
 
-use super::{bullet::BulletState, SceneDrawable};
-use lang_compiler::compile;
 use lang_vm::{
     bullet::{BulletColor, BulletType},
     VM,
 };
+
+use super::{bullet::BulletState, bullet_codes::BulletCodeMap, SceneDrawable};
 
 pub struct Player {
     pub state: BulletState,
@@ -13,31 +13,15 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new() -> Self {
+    pub fn new(code_map: &BulletCodeMap) -> Self {
         let state = BulletState::new(200.0, 400.0, BulletType::Player, BulletColor::White);
-
-        let player_code = r##"
-            global slow_v = 4.0
-            global fast_v = 7.0
-
-            proc velocity() -> float {
-              return if $input_slow { slow_v } else { fast_v }
-            }
-
-            proc main() {
-              $px = $px - if $input_left { velocity() } else { 0.0 }
-              $px = $px + if $input_right { velocity() } else { 0.0 }
-              $py = $py - if $input_up { velocity() } else { 0.0 }
-              $py = $py + if $input_down { velocity() } else { 0.0 }
-            }
-            "##
-        .to_string();
-        let compiled_player = compile(player_code, BulletState::state_id_map());
-        let compiled_player = compiled_player.unwrap();
         let mut vm = VM::new();
-        eprintln!("VM code = {:?}", compiled_player);
-        vm.set_code(compiled_player.code);
-        vm.set_memory(compiled_player.memory);
+
+        if let Some((code, memory)) = code_map.get("player") {
+            eprintln!("VM code = {:?}", code);
+            vm.set_code(code.clone());
+            vm.set_memory(memory.clone());
+        }
 
         Self { state, vm }
     }

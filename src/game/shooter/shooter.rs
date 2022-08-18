@@ -1,10 +1,16 @@
 use ggez::{event::EventHandler, Context, GameResult};
 
-use super::{bullet::InputState, bullet_pool::BulletPool, player::Player};
+use super::{
+    bullet::InputState,
+    bullet_codes::{compile_codes, BulletCodeMap},
+    bullet_pool::BulletPool,
+    player::Player,
+};
 
 pub struct Shooter {
     pub player: Player,
     pub bullets: BulletPool,
+    code_map: BulletCodeMap,
 }
 
 pub enum Input {
@@ -18,9 +24,12 @@ pub enum Input {
 
 impl Shooter {
     pub fn new() -> Self {
+        let code_map = compile_codes();
+
         Self {
-            player: Player::new(),
+            player: Player::new(&code_map),
             bullets: BulletPool::new(),
+            code_map,
         }
     }
 

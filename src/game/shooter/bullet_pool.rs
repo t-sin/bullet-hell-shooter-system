@@ -19,10 +19,9 @@ pub struct BulletPool {
 
 impl BulletPool {
     pub const BULLET_MAX: usize = 4000;
+    const EMPTY_BULLET_CODE: [Inst; 1] = [Inst::Term];
 
     pub fn new() -> Self {
-        let bullet_code = [Inst::Term];
-
         let mut states = Vec::new();
         let mut nexts = Vec::new();
         let mut vms = Vec::new();
@@ -36,7 +35,7 @@ impl BulletPool {
                 Some(n + 1)
             });
             let mut vm = VM::new();
-            vm.set_code(Vec::from(bullet_code.clone()));
+            vm.set_code(Rc::new(Self::EMPTY_BULLET_CODE.to_vec()));
             vms.push(vm);
         }
 

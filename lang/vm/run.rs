@@ -281,7 +281,7 @@ impl VM {
             },
             None => Err(RuntimeError::OutOfCode(
                 self.pc as i32,
-                Vec::from(self.code.clone()),
+                Vec::from(self.code.as_ref().clone()),
             )),
         }
     }
