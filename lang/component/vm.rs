@@ -1,4 +1,7 @@
-use crate::syntax::Type;
+use crate::{
+    bullet::{BulletColor, BulletType},
+    syntax::Type,
+};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Data {

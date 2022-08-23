@@ -14,8 +14,12 @@ use ggez::{
 };
 use glam;
 
-use lang_component::{syntax::Type, vm::Data};
-use lang_vm::bullet::{BulletColor, BulletType, State};
+use lang_component::{
+    bullet::{BulletColor, BulletType},
+    syntax::Type,
+    vm::Data,
+};
+use lang_vm::bullet::State;
 
 use super::SceneDrawable;
 use crate::constant;

@@ -2,11 +2,11 @@ use std::{cell::RefCell, ops::DerefMut, rc::Rc};
 
 use ggez::{Context, GameError, GameResult};
 
-use lang_component::vm::Inst;
-use lang_vm::{
+use lang_component::{
     bullet::{BulletColor, BulletType},
-    VM,
+    vm::Inst,
 };
+use lang_vm::VM;
 
 use super::{bullet::BulletState, SceneDrawable};
 

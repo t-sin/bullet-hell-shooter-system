@@ -1,9 +1,7 @@
 use ggez::{Context, GameError, GameResult};
 
-use lang_vm::{
-    bullet::{BulletColor, BulletType},
-    VM,
-};
+use lang_component::bullet::{BulletColor, BulletType};
+use lang_vm::VM;
 
 use super::{
     bullet::BulletState,
