@@ -557,10 +557,15 @@ fn codegen_pass3_resolve_jumps(state: &mut CodegenState) -> Result<(), CodegenEr
     Ok(())
 }
 
+pub struct CodegenResult {
+    pub code: Vec<Inst>,
+    pub initial_memory: Vec<u8>,
+}
+
 pub fn codegen(
     source: Vec<SyntaxTree>,
     state_map: ObjectStates,
-) -> Result<(Vec<Inst>, Vec<u8>), CodegenError> {
+) -> Result<CodegenResult, CodegenError> {
     let proc_map = Rc::new(RefCell::new(HashMap::new()));
     let memory_info = Rc::new(RefCell::new(Vec::new()));
     let state_map = Rc::new(state_map);
@@ -570,7 +575,12 @@ pub fn codegen(
     codegen_pass2_place_proc_code(&mut state)?;
     codegen_pass3_resolve_jumps(&mut state)?;
 
-    Ok((state.code, state.memory))
+    let result = CodegenResult {
+        code: state.code,
+        initial_memory: state.memory,
+    };
+
+    Ok(result)
 }
 
 #[cfg(test)]

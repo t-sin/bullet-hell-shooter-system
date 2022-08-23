@@ -9,7 +9,7 @@ use nom::{error::ErrorKind, Err};
 use lang_component::vm::Inst;
 
 use crate::{
-    codegen::{codegen, CodegenError},
+    codegen::{codegen, CodegenError, CodegenResult},
     parse::{parse, ParserError},
     tokenize::tokenize,
 };
@@ -57,7 +57,10 @@ pub fn compile(
     match tokenize(&source[..]) {
         Ok((_, tokens)) => match parse(&tokens[..]) {
             Ok((_, stvec)) => match codegen(stvec, ObjectStates(state_map)) {
-                Ok((code, memory)) => Ok(CompileResult::new(code, memory)),
+                Ok(CodegenResult {
+                    code,
+                    initial_memory,
+                }) => Ok(CompileResult::new(code, initial_memory)),
                 Err(err) => Err(CompileError::CodegenError(err)),
             },
             Err(Err::Error(err)) => Err(CompileError::ParseError(err.purge_input().unwrap())),
