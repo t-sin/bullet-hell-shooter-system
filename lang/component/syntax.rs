@@ -24,6 +24,27 @@ impl Arg {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Signature {
+    pub args: Vec<Arg>,
+    pub ret: Option<Type>,
+}
+
+impl Signature {
+    pub fn new(args: Vec<Arg>, ret: Option<Type>) -> Self {
+        Self { args, ret }
+    }
+}
+
+impl Default for Signature {
+    fn default() -> Self {
+        Self {
+            args: vec![],
+            ret: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Op2 {
     // precedence level 1
     Mul,
@@ -69,5 +90,5 @@ pub enum Expr {
 #[derive(Debug, Clone, PartialEq)]
 pub enum SyntaxTree {
     GlobalDefine(Symbol, Expr),
-    DefProc(Name, Vec<Arg>, Option<Type>, Vec<Body>),
+    DefProc(Name, Signature, Vec<Body>),
 }

@@ -2,12 +2,11 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::ObjectStates;
 use lang_component::{
-    syntax::{Arg, Body, Expr, Name, Op2, Symbol, SyntaxTree, Type},
+    syntax::{Body, Expr, Name, Op2, Signature, Symbol, SyntaxTree, Type},
     vm::Inst,
 };
 
 type VarInfo = (Type, String);
-type Signature = (Vec<Arg>, Option<Type>);
 
 #[derive(Debug, Clone)]
 enum StackData {
@@ -128,7 +127,7 @@ impl Proc {
     fn new() -> Self {
         Self {
             offset: 0,
-            signature: (vec![], None),
+            signature: Signature::default(),
             code: Vec::new(),
             unresolved_list: Vec::new(),
         }
@@ -403,8 +402,7 @@ fn insert_return_to_body(name: &str, body: &[Body]) -> Vec<Body> {
 
 fn codegen_proc(
     name: &str,
-    args: &[Arg],
-    ret: Option<Type>,
+    sig: &Signature,
     body: &[Body],
     state: &mut CodegenState,
 ) -> Result<(), CodegenError> {
@@ -415,7 +413,7 @@ fn codegen_proc(
     }
 
     let mut proc_stack = StackInfo::new();
-    for arg in args.iter() {
+    for arg in sig.args.iter() {
         let sd = match arg.r#type {
             Type::Float => StackData::Var((Type::Float, arg.name.0.clone())),
             Type::Bool => StackData::Var((Type::Bool, arg.name.0.clone())),
@@ -429,10 +427,10 @@ fn codegen_proc(
     proc_state.code = vec![];
 
     let body = insert_return_to_body(&name[..], body);
-    codegen_proc_body(&name[..], args.len(), body.as_slice(), &mut proc_state)?;
+    codegen_proc_body(&name[..], sig.args.len(), body.as_slice(), &mut proc_state)?;
 
     let mut proc = Proc::new();
-    proc.signature = (args.to_vec(), ret);
+    proc.signature = Signature::new(sig.args.to_vec(), sig.ret);
     proc.code = proc_state.code;
     proc.unresolved_list = proc_state.current_unresolved.take();
 
@@ -448,8 +446,8 @@ fn codegen_syntax_trees(
 ) -> Result<(), CodegenError> {
     for st in stvec.iter() {
         match st {
-            SyntaxTree::DefProc(Name(name), args, ret, body) => {
-                codegen_proc(name, args, *ret, body, state)?;
+            SyntaxTree::DefProc(Name(name), signature, body) => {
+                codegen_proc(name, signature, body, state)?;
             }
             SyntaxTree::GlobalDefine(Symbol::Var(Name(name)), expr) => match expr {
                 Expr::Float(f) => {
