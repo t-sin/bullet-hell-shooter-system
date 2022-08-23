@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use nom::{error::ErrorKind, Err};
 
-use lang_component::vm::Inst;
+use lang_component::{syntax::Signature, vm::Inst};
 
 use crate::{
     codegen::{codegen, CodegenError, CodegenResult},
@@ -30,13 +30,15 @@ pub enum CompileError {
 pub struct CompileResult {
     pub code: Vec<Inst>,
     pub memory: Vec<u8>,
+    pub signature: Signature,
 }
 
 impl CompileResult {
-    fn new(code: Vec<Inst>, memory: Vec<u8>) -> Self {
+    fn new(code: Vec<Inst>, memory: Vec<u8>, signature: Signature) -> Self {
         Self {
-            code: code,
-            memory: memory,
+            code,
+            memory,
+            signature,
         }
     }
 }
@@ -59,8 +61,9 @@ pub fn compile(
             Ok((_, stvec)) => match codegen(stvec, ObjectStates(state_map)) {
                 Ok(CodegenResult {
                     code,
-                    initial_memory,
-                }) => Ok(CompileResult::new(code, initial_memory)),
+                    memory,
+                    signature,
+                }) => Ok(CompileResult::new(code, memory, signature)),
                 Err(err) => Err(CompileError::CodegenError(err)),
             },
             Err(Err::Error(err)) => Err(CompileError::ParseError(err.purge_input().unwrap())),

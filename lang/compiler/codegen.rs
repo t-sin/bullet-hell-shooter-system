@@ -559,7 +559,8 @@ fn codegen_pass3_resolve_jumps(state: &mut CodegenState) -> Result<(), CodegenEr
 
 pub struct CodegenResult {
     pub code: Vec<Inst>,
-    pub initial_memory: Vec<u8>,
+    pub memory: Vec<u8>,
+    pub signature: Signature,
 }
 
 pub fn codegen(
@@ -575,9 +576,18 @@ pub fn codegen(
     codegen_pass2_place_proc_code(&mut state)?;
     codegen_pass3_resolve_jumps(&mut state)?;
 
+    let signature = state
+        .proc_map
+        .borrow()
+        .get("main")
+        .unwrap()
+        .signature
+        .clone();
+
     let result = CodegenResult {
         code: state.code,
-        initial_memory: state.memory,
+        memory: state.memory,
+        signature,
     };
 
     Ok(result)
@@ -600,7 +610,7 @@ mod codegen_test {
         if let Ok(("", tokens)) = tokenize(string) {
             println!("tokens: {:?}", tokens);
             if let Ok((&[], stvec)) = parse(&tokens) {
-                if let Ok((actual, _)) = codegen(stvec, object_states) {
+                if let Ok(CodegenResult { code: actual, .. }) = codegen(stvec, object_states) {
                     println!("actual = {:?}\nexpected = {:?}", actual, expected);
 
                     assert_eq!(actual.len(), expected.len());
