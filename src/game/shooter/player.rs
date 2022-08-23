@@ -5,7 +5,11 @@ use lang_vm::{
     VM,
 };
 
-use super::{bullet::BulletState, bullet_codes::BulletCodeMap, SceneDrawable};
+use super::{
+    bullet::BulletState,
+    bullet_codes::{BulletCode, BulletCodeMap},
+    SceneDrawable,
+};
 
 pub struct Player {
     pub state: BulletState,
@@ -17,10 +21,15 @@ impl Player {
         let state = BulletState::new(200.0, 400.0, BulletType::Player, BulletColor::White);
         let mut vm = VM::new();
 
-        if let Some((code, memory)) = code_map.get("player") {
+        if let Some(BulletCode {
+            code,
+            initial_memory,
+            signature: _signature,
+        }) = code_map.get("player")
+        {
             eprintln!("VM code = {:?}", code);
             vm.set_code(code.clone());
-            vm.set_memory(memory.clone());
+            vm.set_memory(initial_memory.clone());
         }
 
         Self { state, vm }

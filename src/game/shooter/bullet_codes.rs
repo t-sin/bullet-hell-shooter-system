@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 use lang_compiler::compile;
-use lang_component::vm::Inst;
+use lang_component::{syntax::Signature, vm::Inst};
 
 use super::bullet::BulletState;
 
@@ -24,7 +24,13 @@ const CODE_MAP: [(&str, &str); 1] = [(
     "##,
 )];
 
-pub type BulletCodeMap = HashMap<String, (Rc<Vec<Inst>>, Vec<u8>)>;
+pub struct BulletCode {
+    pub code: Rc<Vec<Inst>>,
+    pub initial_memory: Vec<u8>,
+    pub signature: Signature,
+}
+
+pub type BulletCodeMap = HashMap<String, BulletCode>;
 
 pub fn compile_codes() -> BulletCodeMap {
     let mut map = HashMap::new();
@@ -35,7 +41,13 @@ pub fn compile_codes() -> BulletCodeMap {
             Err(err) => panic!("compilation '{}' fails: {:?}", name, err),
         };
 
-        map.insert(name.to_string(), (Rc::new(result.code), result.memory));
+        let bc = BulletCode {
+            code: Rc::new(result.code),
+            initial_memory: result.memory,
+            signature: result.signature,
+        };
+
+        map.insert(name.to_string(), bc);
     }
 
     map
