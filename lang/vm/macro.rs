@@ -33,6 +33,7 @@ macro_rules! check_memory_bound {
         let bytes = match $type {
             Type::Float => 4,
             Type::Bool => 1,
+            Type::String => todo!("storing strings in memory"),
         };
         let actual_bytes = $memory.len() - $offset;
 

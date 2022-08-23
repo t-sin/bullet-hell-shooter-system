@@ -35,6 +35,7 @@ impl Appearance {
     }
 }
 
+#[derive(Debug)]
 pub struct InputState {
     pub up: bool,
     pub down: bool,
@@ -61,6 +62,7 @@ pub struct BulletState {
     getters: &'static [&'static dyn Fn(&BulletState) -> Data],
     setters: &'static [&'static dyn Fn(&mut BulletState, Data) -> Result<(), Type>],
     pub enabled: bool,
+    pub visible: bool,
     pub input: InputState,
     pub pos: glam::Vec2,
     pub appearance: Appearance,
@@ -128,6 +130,7 @@ impl BulletState {
             getters: &Self::STATE_GETTERS,
             setters: &Self::STATE_SETTERS,
             enabled: false,
+            visible: false,
             input: InputState::default(),
             pos: glam::vec2(x, y),
             appearance: Appearance::new(atype, acolor),
@@ -193,10 +196,10 @@ impl SceneDrawable for BulletState {
                 graphics::draw(ctx, &hit_area, param)?;
             }
             BulletType::Bullet1 => {
-                let dest = glam::vec2(-5.0, -5.0) + pos;
-                let param = param.dest::<Point2<f32>>(dest.into());
+                //                let dest = glam::vec2(-5.0, -5.0) + pos;
+                //                let param = param.dest::<Point2<f32>>(dest.into());
                 let bullet = MeshBuilder::new()
-                    .circle(DrawMode::stroke(1.0), pos, 8.0, 1.0, color)?
+                    .circle(DrawMode::stroke(1.0), pos, 4.0, 1.0, color)?
                     .build(ctx)?;
                 graphics::draw(ctx, &bullet, param)?;
             }

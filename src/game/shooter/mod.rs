@@ -9,7 +9,7 @@ use ggez::{
         MeshBuilder,
         Rect,
     },
-    input::keyboard::{self, KeyCode, KeyMods},
+    input::keyboard::{KeyCode, KeyMods},
     Context, GameResult,
 };
 use glam;

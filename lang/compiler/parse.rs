@@ -1077,4 +1077,23 @@ mod parser_test {
             "##,
         );
     }
+
+    #[test]
+    fn test_parse_strings() {
+        test_parse_1(
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                Signature::new(vec![], None),
+                vec![Body::Assignment(
+                    Symbol::State(Name("x".to_string())),
+                    Expr::String("mojiretsu".to_string()),
+                )],
+            ),
+            r##"
+            proc main() {
+              $x = "mojiretsu"
+            }
+            "##,
+        );
+    }
 }

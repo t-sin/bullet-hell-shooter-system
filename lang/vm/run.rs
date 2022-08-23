@@ -1,6 +1,9 @@
+use std::collections::VecDeque;
+
 use lang_component::{
+    bullet::{BulletColor, BulletType},
     syntax::Type,
-    vm::{Data, Inst},
+    vm::{Data, ExternalOperation, Inst, OperationQuery},
 };
 
 use crate::{bullet::State, error::RuntimeError, r#macro::*, VM};
@@ -8,12 +11,16 @@ use crate::{bullet::State, error::RuntimeError, r#macro::*, VM};
 pub struct Terminated(pub bool);
 
 impl VM {
-    pub fn run(&mut self, state: &mut dyn State) -> Result<(), RuntimeError> {
+    pub fn run(
+        &mut self,
+        state: &mut dyn State,
+        op_queue: &mut VecDeque<OperationQuery>,
+    ) -> Result<(), RuntimeError> {
         //self.stack.clear();
         self.pc = 0;
 
         loop {
-            match self.run1(state) {
+            match self.run1(state, op_queue) {
                 Ok(terminated) => {
                     if terminated.0 {
                         break;
@@ -30,7 +37,11 @@ impl VM {
         Ok(())
     }
 
-    fn run1(&mut self, state: &mut dyn State) -> Result<Terminated, RuntimeError> {
+    fn run1(
+        &mut self,
+        state: &mut dyn State,
+        op_queue: &mut VecDeque<OperationQuery>,
+    ) -> Result<Terminated, RuntimeError> {
         let pc = self.pc;
         let inst = self.code.get(pc);
         self.pc += 1;
@@ -42,6 +53,27 @@ impl VM {
         match inst {
             Some(inst) => match inst {
                 Inst::Term => Ok(Terminated(true)),
+                Inst::Operate(op) => match op {
+                    ExternalOperation::Fire(id) => {
+                        let y = stack_pop!(self.stack);
+                        let x = stack_pop!(self.stack);
+                        #[allow(irrefutable_let_patterns)]
+                        let x = float_data!(x);
+                        #[allow(irrefutable_let_patterns)]
+                        let y = float_data!(y);
+
+                        let query = OperationQuery::Fire(
+                            *id,
+                            (x, y),
+                            BulletType::Bullet1,
+                            BulletColor::White,
+                            vec![],
+                        );
+                        op_queue.push_front(query);
+
+                        Ok(Terminated(false))
+                    }
+                },
                 Inst::Read(offset, r#type) => {
                     let offset = *offset;
                     check_memory_bound!(self.memory, offset, *r#type);
@@ -60,6 +92,7 @@ impl VM {
                             let u8_bool = *self.memory.get(offset).unwrap();
                             self.stack.push(Data::Bool(u8_bool != 0));
                         }
+                        Type::String => todo!("storing strings in memory is not implemented"),
                     }
 
                     Ok(Terminated(false))
@@ -82,6 +115,7 @@ impl VM {
                         Data::Bool(b) => {
                             self.memory[offset] = if b { 1 } else { 0 };
                         }
+                        Data::String(_) => todo!("storing strings in memory is not implemented"),
                     };
 
                     Ok(Terminated(false))
@@ -106,29 +140,13 @@ impl VM {
                 Inst::Set(id) => {
                     let d = stack_pop!(self.stack);
 
-                    match state.set(*id, d) {
+                    match state.set(*id, d.clone()) {
                         Err(Some(expected_type)) => {
                             Err(RuntimeError::TypeMismatched(d, expected_type))
                         }
                         Err(None) => Err(RuntimeError::UnknownState(*id)),
                         _ => Ok(Terminated(false)),
                     }
-                }
-                Inst::Fire(_blang_name) => {
-                    // let y = stack_pop!(self.stack);
-                    // let x = stack_pop!(self.stack);
-                    // #[allow(irrefutable_let_patterns)]
-                    // let x = float_data!(x);
-                    // #[allow(irrefutable_let_patterns)]
-                    // let y = float_data!(y);
-                    // ops_queue.push_back(Operation::PutBullet(
-                    //     x,
-                    //     y,
-                    //     blang_name.to_string(),
-                    //     BulletType::Bullet1,
-                    //     BulletColor::White,
-                    // ));
-                    Ok(Terminated(false))
                 }
                 Inst::Add | Inst::Sub | Inst::Mul => {
                     let b = stack_pop!(self.stack);

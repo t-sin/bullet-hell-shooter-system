@@ -1,16 +1,20 @@
+use std::{collections::VecDeque, rc::Rc};
+
 use ggez::{event::EventHandler, Context, GameResult};
 
-use super::{
-    bullet::InputState,
-    bullet_codes::{compile_codes, BulletCodeMap},
-    bullet_pool::BulletPool,
-    player::Player,
+use lang_compiler::BulletCode;
+use lang_component::{
+    bullet::{BulletColor, BulletType},
+    vm::{Data, OperationQuery},
 };
+
+use super::{bullet_codes::BulletCodes, bullet_pool::BulletPool, player::Player};
 
 pub struct Shooter {
     pub player: Player,
     pub bullets: BulletPool,
-    code_map: BulletCodeMap,
+    bullet_codes: BulletCodes,
+    op_queue: VecDeque<OperationQuery>,
 }
 
 #[derive(Debug)]
@@ -23,14 +27,27 @@ pub enum Input {
     Slow,
 }
 
+pub trait OperationProcessor {
+    fn fire(
+        &mut self,
+        x: f32,
+        y: f32,
+        r#type: BulletType,
+        color: BulletColor,
+        params: Vec<Data>,
+        bullet_code: Rc<BulletCode>,
+    ) -> bool;
+}
+
 impl Shooter {
     pub fn new() -> Self {
-        let code_map = compile_codes();
+        let bullet_codes = BulletCodes::compile_codes();
 
         Self {
-            player: Player::new(&code_map),
+            player: Player::new(&bullet_codes),
             bullets: BulletPool::new(),
-            code_map,
+            bullet_codes,
+            op_queue: VecDeque::new(),
         }
     }
 
@@ -46,10 +63,37 @@ impl Shooter {
     }
 }
 
+impl OperationProcessor for Shooter {
+    fn fire(
+        &mut self,
+        x: f32,
+        y: f32,
+        r#type: BulletType,
+        color: BulletColor,
+        params: Vec<Data>,
+        bullet_code: Rc<BulletCode>,
+    ) -> bool {
+        self.bullets.fire(x, y, r#type, color, params, bullet_code)
+    }
+}
+
 impl EventHandler for Shooter {
     fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
-        self.player.update()?;
-        self.bullets.update()?;
+        self.player.update(&mut self.op_queue)?;
+        self.bullets.update(&mut self.op_queue)?;
+
+        loop {
+            if let Some(op) = self.op_queue.pop_back() {
+                match op {
+                    OperationQuery::Fire(bullet_id, (x, y), r#type, color, params) => {
+                        let bc = self.bullet_codes.by_id[bullet_id].clone();
+                        self.fire(x, y, r#type, color, params, bc);
+                    }
+                }
+            } else {
+                break;
+            }
+        }
 
         Ok(())
     }

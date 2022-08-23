@@ -10,6 +10,7 @@ use lang_component::vm::{Data, Inst};
 pub use error::*;
 pub use run::*;
 
+#[derive(Debug)]
 pub struct VM {
     pub pc: usize,
     pub code: Rc<Vec<Inst>>,

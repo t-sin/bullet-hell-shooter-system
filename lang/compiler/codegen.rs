@@ -1,10 +1,11 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::ObjectStates;
 use lang_component::{
     syntax::{Body, Expr, Name, Op2, Signature, Symbol, SyntaxTree, Type},
-    vm::Inst,
+    vm::{ExternalOperation, Inst},
 };
+
+use crate::{BulletCode, ObjectStates};
 
 type VarInfo = (Type, String);
 
@@ -14,6 +15,7 @@ enum StackData {
     State(VarInfo),
     Float,
     Bool,
+    String,
 }
 
 impl From<Type> for StackData {
@@ -21,6 +23,7 @@ impl From<Type> for StackData {
         match t {
             Type::Float => StackData::Float,
             Type::Bool => StackData::Bool,
+            Type::String => StackData::String,
         }
     }
 }
@@ -77,6 +80,10 @@ impl StackInfo {
             }
         }
     }
+
+    fn peek(&self, n: usize) -> Option<StackData> {
+        self.info.get(self.info.len() - 1 - n).cloned()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -97,6 +104,7 @@ impl MemoryInfo {
             let size = match mi.r#type {
                 Type::Float => 4,
                 Type::Bool => 1,
+                Type::String => 0, // string stored as [size, ch0, ch1, ...]
             };
 
             if self.name == mi.name && self.r#type == mi.r#type {
@@ -135,7 +143,7 @@ impl Proc {
 }
 
 #[derive(Debug, Clone)]
-pub struct CodegenState {
+pub struct CodegenState<'a> {
     current_proc: Option<String>,
     pub code: Vec<Inst>,
     proc_map: Rc<RefCell<HashMap<String, Proc>>>,
@@ -145,13 +153,15 @@ pub struct CodegenState {
     memory_info: Rc<RefCell<Vec<MemoryInfo>>>,
     current_unresolved: Rc<RefCell<Vec<ResolveInfo>>>,
     object_state_ids: Rc<ObjectStates>,
+    compiled_code_vec: &'a Vec<Rc<BulletCode>>,
 }
 
-impl CodegenState {
+impl<'a> CodegenState<'a> {
     fn new(
         proc_map: Rc<RefCell<HashMap<String, Proc>>>,
         memory_info: Rc<RefCell<Vec<MemoryInfo>>>,
         object_state_ids: Rc<ObjectStates>,
+        compiled_code_vec: &'a Vec<Rc<BulletCode>>,
     ) -> Self {
         Self {
             current_proc: None,
@@ -163,6 +173,7 @@ impl CodegenState {
             memory_info: memory_info,
             current_unresolved: Rc::new(RefCell::new(Vec::new())),
             object_state_ids,
+            compiled_code_vec,
         }
     }
 
@@ -193,11 +204,76 @@ macro_rules! emit {
 pub enum CodegenError {
     UnknownVMState(String),
     UnknownVariable(String),
+    UnknownName(String),
     ProcAlreadyDefined(String),
     MainProcIsNotDefined,
     UndefinedProc(String),
     GlobalDefineOnlyAllowsLiteral(Expr),
     GlobalDefineOnlyAllowsToVar(Symbol),
+    WrongParamNumberWhileInvokingExternalOp,
+    WrongTypeWhileInvokingExternalOp,
+    StringIsNotSupportedHere,
+    NotAString,
+}
+
+fn codegen_external_op_fire(args: Vec<Expr>, state: &mut CodegenState) -> Result<(), CodegenError> {
+    if args.len() != 3 {
+        return Err(CodegenError::WrongParamNumberWhileInvokingExternalOp);
+    }
+
+    let bullet_id = if let Expr::String(bullet_name) = &args[0] {
+        if let Some((idx, _)) = state
+            .compiled_code_vec
+            .iter()
+            .enumerate()
+            .find(|(_, bc)| &bc.name == bullet_name)
+        {
+            idx
+        } else {
+            return Err(CodegenError::UnknownName(bullet_name.to_string()));
+        }
+    } else {
+        return Err(CodegenError::NotAString);
+    };
+
+    codegen_expr(&args[1], state)?;
+    if !matches!(state.stack.peek(0), Some(StackData::Float)) {
+        return Err(CodegenError::WrongTypeWhileInvokingExternalOp);
+    }
+
+    codegen_expr(&args[2], state)?;
+    if !matches!(state.stack.peek(0), Some(StackData::Float)) {
+        return Err(CodegenError::WrongTypeWhileInvokingExternalOp);
+    }
+
+    let _ = state.stack.pop();
+    let _ = state.stack.pop();
+    let _ = state.stack.pop();
+
+    emit!(state, Inst::Operate(ExternalOperation::Fire(bullet_id)));
+    state.stack.push(StackData::Bool);
+
+    Ok(())
+}
+
+const EXTERNAL_OPS: [(
+    &str,
+    &dyn Fn(Vec<Expr>, &mut CodegenState) -> Result<(), CodegenError>,
+); 1] = [("fire", &codegen_external_op_fire)];
+
+fn codegen_external_op(
+    name: &str,
+    args: Vec<Expr>,
+    state: &mut CodegenState,
+) -> Result<(), CodegenError> {
+    let op = EXTERNAL_OPS.iter().find(|(n, _)| n == &name);
+
+    if op.is_none() {
+        return Err(CodegenError::UndefinedProc(name.to_string()));
+    }
+
+    let (_, codegen_fn) = op.unwrap();
+    (codegen_fn)(args, state)
 }
 
 fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenError> {
@@ -288,6 +364,12 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
             let _ = state.stack.pop();
         }
         Expr::ProcCall(Name(name), args) => {
+            match codegen_external_op(name, args.to_vec(), state) {
+                Ok(()) => return Ok(()),
+                Err(CodegenError::UndefinedProc(_)) => (),
+                Err(err) => return Err(err),
+            }
+
             if let None = state.proc_map.borrow().get(name) {
                 return Err(CodegenError::UndefinedProc(name.to_string()));
             }
@@ -394,7 +476,9 @@ fn insert_return_to_body(name: &str, body: &[Body]) -> Vec<Body> {
         match statement {
             Body::Return(_) => body,
             Body::Expr(expr) => {
-                if name != "main" {
+                if name == "main" {
+                    body.push(Body::Return(None));
+                } else {
                     body.push(Body::Return(Some(*expr.clone())));
                 }
                 body
@@ -427,6 +511,7 @@ fn codegen_proc(
         let sd = match arg.r#type {
             Type::Float => StackData::Var((Type::Float, arg.name.0.clone())),
             Type::Bool => StackData::Var((Type::Bool, arg.name.0.clone())),
+            Type::String => return Err(CodegenError::StringIsNotSupportedHere),
         };
         proc_stack.push(sd);
     }
@@ -582,11 +667,12 @@ pub struct CodegenResult {
 pub fn codegen(
     source: Vec<SyntaxTree>,
     state_map: ObjectStates,
+    compiled_bullet_vec: &Vec<Rc<BulletCode>>,
 ) -> Result<CodegenResult, CodegenError> {
     let proc_map = Rc::new(RefCell::new(HashMap::new()));
     let memory_info = Rc::new(RefCell::new(Vec::new()));
     let state_map = Rc::new(state_map);
-    let mut state = CodegenState::new(proc_map, memory_info, state_map);
+    let mut state = CodegenState::new(proc_map, memory_info, state_map, compiled_bullet_vec);
 
     codegen_pass1_generate_proc_code(source, &mut state)?;
     codegen_pass2_place_proc_code(&mut state)?;
@@ -622,19 +708,27 @@ mod codegen_test {
         object_states.insert("input_slow".to_string(), 10);
         let object_states = ObjectStates(object_states);
 
+        let mut compiled_bullet_vec = Vec::new();
+        compiled_bullet_vec.push(Rc::new(BulletCode::new("bullet_0")));
+        compiled_bullet_vec.push(Rc::new(BulletCode::new("bullet_1")));
+        compiled_bullet_vec.push(Rc::new(BulletCode::new("bullet_2")));
+
         println!("text: {:?}", string);
         if let Ok(("", tokens)) = tokenize(string) {
             println!("tokens: {:?}", tokens);
             if let Ok((&[], stvec)) = parse(&tokens) {
-                if let Ok(CodegenResult { code: actual, .. }) = codegen(stvec, object_states) {
-                    println!("actual = {:?}\nexpected = {:?}", actual, expected);
+                match codegen(stvec, object_states, &compiled_bullet_vec) {
+                    Ok(CodegenResult { code: actual, .. }) => {
+                        println!("actual = {:?}\nexpected = {:?}", actual, expected);
 
-                    assert_eq!(actual.len(), expected.len());
-                    let eq = actual.iter().zip(expected.clone()).all(|(a, b)| *a == b);
-                    assert!(eq);
-                } else {
-                    println!("Cannot codegen: {}", string);
-                    assert!(false);
+                        assert_eq!(actual.len(), expected.len());
+                        let eq = actual.iter().zip(expected.clone()).all(|(a, b)| *a == b);
+                        assert!(eq);
+                    }
+                    Err(err) => {
+                        println!("Cannot codegen: {} because {:?}", string, err);
+                        assert!(false);
+                    }
                 }
             } else {
                 println!("Cannot parse source: {}", string);
@@ -942,6 +1036,24 @@ mod codegen_test {
             proc main() {
               do_nothing()
               $x = $x + 42
+            }
+            "##,
+        );
+    }
+
+    #[test]
+    fn test_codegen_external_operation() {
+        test_codegen(
+            vec![
+                Inst::Get(0),
+                Inst::Get(1),
+                Inst::Operate(ExternalOperation::Fire(1)),
+                Inst::Drop,
+                Inst::Term,
+            ],
+            r##"
+            proc main() {
+              fire("bullet_1", $x, $y)
             }
             "##,
         );

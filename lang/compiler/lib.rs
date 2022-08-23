@@ -2,7 +2,7 @@ mod codegen;
 mod parse;
 mod tokenize;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use nom::{error::ErrorKind, Err};
 
@@ -13,6 +13,27 @@ use crate::{
     parse::{parse, ParserError},
     tokenize::tokenize,
 };
+
+#[derive(Debug, Clone)]
+pub struct BulletCode {
+    pub id: usize,
+    pub name: String,
+    pub code: Rc<Vec<Inst>>,
+    pub initial_memory: Vec<u8>,
+    pub signature: Signature,
+}
+
+impl BulletCode {
+    fn new(name: &str) -> Self {
+        Self {
+            id: 0,
+            name: name.to_string(),
+            code: Rc::new(Vec::new()),
+            initial_memory: Vec::new(),
+            signature: Signature::new(Vec::new(), None),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct TokenizerError {
@@ -55,10 +76,11 @@ impl ObjectStates {
 pub fn compile(
     source: String,
     state_map: HashMap<String, usize>,
+    code_vec: &Vec<Rc<BulletCode>>,
 ) -> Result<CompileResult, CompileError> {
     match tokenize(&source[..]) {
         Ok((_, tokens)) => match parse(&tokens[..]) {
-            Ok((_, stvec)) => match codegen(stvec, ObjectStates(state_map)) {
+            Ok((_, stvec)) => match codegen(stvec, ObjectStates(state_map), code_vec) {
                 Ok(CodegenResult {
                     code,
                     memory,

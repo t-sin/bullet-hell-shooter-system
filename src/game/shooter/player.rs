@@ -1,13 +1,15 @@
+use std::collections::VecDeque;
+
 use ggez::{Context, GameError, GameResult};
 
-use lang_component::bullet::{BulletColor, BulletType};
+use lang_compiler::BulletCode;
+use lang_component::{
+    bullet::{BulletColor, BulletType},
+    vm::{Data, OperationQuery},
+};
 use lang_vm::VM;
 
-use super::{
-    bullet::BulletState,
-    bullet_codes::{BulletCode, BulletCodeMap},
-    SceneDrawable,
-};
+use super::{bullet::BulletState, bullet_codes::BulletCodes, SceneDrawable};
 
 pub struct Player {
     pub state: BulletState,
@@ -15,26 +17,21 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(code_map: &BulletCodeMap) -> Self {
+    pub fn new(codes: &BulletCodes) -> Self {
         let state = BulletState::new(200.0, 400.0, BulletType::Player, BulletColor::White);
         let mut vm = VM::new();
 
-        if let Some(BulletCode {
-            code,
-            initial_memory,
-            signature: _signature,
-        }) = code_map.get("player")
-        {
-            eprintln!("VM code = {:?}", code);
-            vm.set_code(code.clone());
-            vm.set_memory(initial_memory.clone());
+        if let Some(bc) = codes.by_name.get("player") {
+            eprintln!("VM code = {:?}", bc.code);
+            vm.set_code(bc.code.clone());
+            vm.set_memory(bc.initial_memory.clone());
         }
 
         Self { state, vm }
     }
 
-    pub fn update(&mut self) -> GameResult<()> {
-        if let Err(err) = self.vm.run(&mut self.state) {
+    pub fn update(&mut self, op_queue: &mut VecDeque<OperationQuery>) -> GameResult<()> {
+        if let Err(err) = self.vm.run(&mut self.state, op_queue) {
             return Err(GameError::CustomError(format!("error = {:?}", err)));
         }
 
@@ -48,4 +45,16 @@ impl Player {
 
         Ok(())
     }
+}
+
+pub trait OperationProcessor {
+    fn fire(
+        &mut self,
+        x: f32,
+        y: f32,
+        r#type: BulletType,
+        color: BulletColor,
+        params: Vec<Data>,
+        bullet_code: &BulletCode,
+    ) -> bool;
 }

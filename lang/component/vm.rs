@@ -3,10 +3,11 @@ use crate::{
     syntax::Type,
 };
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Data {
     Float(f32),
     Bool(bool),
+    String(String),
 }
 impl Eq for Data {}
 
@@ -15,14 +16,26 @@ impl Data {
         match self {
             Data::Float(_) => Type::Float,
             Data::Bool(_) => Type::Bool,
+            Data::String(_) => Type::String,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExternalOperation {
+    Fire(usize),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum OperationQuery {
+    Fire(usize, (f32, f32), BulletType, BulletColor, Vec<Data>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Inst {
     // system words
     Term, // tells now the program reaches the end of program successfully
+    Operate(ExternalOperation),
     // memory operations
     Read(usize, Type),
     Write(usize),
@@ -32,8 +45,6 @@ pub enum Inst {
     // state accessors
     Get(usize),
     Set(usize),
-    // external operations
-    Fire(String),
     // arithmetics
     Add,
     Sub,

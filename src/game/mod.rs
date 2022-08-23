@@ -1,6 +1,10 @@
 mod shooter;
 
-use ggez::{event::EventHandler, Context, GameResult};
+use ggez::{
+    event::EventHandler,
+    input::keyboard::{KeyCode, KeyMods},
+    Context, GameResult,
+};
 
 use shooter::ShooterScene;
 
@@ -27,5 +31,19 @@ impl EventHandler for BulletsGame {
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         self.scene.draw(ctx)
+    }
+
+    fn key_down_event(
+        &mut self,
+        ctx: &mut Context,
+        keycode: KeyCode,
+        keymods: KeyMods,
+        repeat: bool,
+    ) {
+        self.scene.key_down_event(ctx, keycode, keymods, repeat);
+    }
+
+    fn key_up_event(&mut self, ctx: &mut Context, keycode: KeyCode, keymods: KeyMods) {
+        self.scene.key_up_event(ctx, keycode, keymods);
     }
 }

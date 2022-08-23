@@ -1,20 +1,21 @@
-use std::{cell::RefCell, ops::DerefMut, rc::Rc};
+use std::{cell::RefCell, collections::VecDeque, ops::DerefMut, rc::Rc};
 
 use ggez::{Context, GameError, GameResult};
 
+use lang_compiler::BulletCode;
 use lang_component::{
     bullet::{BulletColor, BulletType},
-    vm::Inst,
+    vm::{Data, Inst, OperationQuery},
 };
 use lang_vm::VM;
 
-use super::{bullet::BulletState, SceneDrawable};
+use super::{bullet::BulletState, shooter::OperationProcessor, SceneDrawable};
 
 pub struct BulletPool {
     pub states: Vec<Rc<RefCell<BulletState>>>,
     pub vms: Vec<VM>,
     pub nexts: Vec<Option<usize>>,
-    pub next_disabled: Option<usize>,
+    pub first_disabled: Option<usize>,
 }
 
 impl BulletPool {
@@ -43,18 +44,18 @@ impl BulletPool {
             states,
             nexts,
             vms,
-            next_disabled: Some(0),
+            first_disabled: Some(0),
         }
     }
 
-    pub fn update(&mut self) -> GameResult<()> {
+    pub fn update(&mut self, op_queue: &mut VecDeque<OperationQuery>) -> GameResult<()> {
         for idx in 0..Self::BULLET_MAX {
             let mut state = self.states[idx].borrow_mut();
             let state = state.deref_mut();
             let vm = &mut self.vms[idx];
 
             if state.enabled {
-                if let Err(err) = vm.run(state) {
+                if let Err(err) = vm.run(state, op_queue) {
                     return Err(GameError::CustomError(format!("error = {:?}", err)));
                 }
             }
@@ -67,7 +68,7 @@ impl BulletPool {
         for idx in 0..Self::BULLET_MAX {
             let state = self.states[idx].borrow();
 
-            if state.enabled {
+            if state.visible {
                 if let Err(err) = state.draw(ctx) {
                     return Err(GameError::CustomError(format!("error = {:?}", err)));
                 }
@@ -75,5 +76,43 @@ impl BulletPool {
         }
 
         Ok(())
+    }
+}
+
+impl OperationProcessor for BulletPool {
+    fn fire(
+        &mut self,
+        x: f32,
+        y: f32,
+        r#type: BulletType,
+        color: BulletColor,
+        _params: Vec<Data>,
+        bullet_code: Rc<BulletCode>,
+    ) -> bool {
+        if self.first_disabled.is_none() {
+            return false;
+        }
+
+        let idx = self.first_disabled.unwrap();
+
+        self.first_disabled = self.nexts[idx];
+        self.nexts[idx] = None;
+
+        let mut state = self.states[idx].borrow_mut();
+        state.enabled = true;
+        state.visible = true;
+        state.pos.x = x;
+        state.pos.y = y;
+        state.appearance.r#type = r#type;
+        state.appearance.color = color;
+
+        let vm = &mut self.vms[idx];
+        vm.code = bullet_code.code.clone();
+        vm.memory
+            .as_mut_slice()
+            .copy_from_slice(bullet_code.initial_memory.as_slice());
+        vm.stack.clear();
+
+        true
     }
 }
