@@ -24,6 +24,7 @@ pub struct BulletCode {
 }
 
 impl BulletCode {
+    #[allow(dead_code)]
     fn new(name: &str) -> Self {
         Self {
             id: 0,

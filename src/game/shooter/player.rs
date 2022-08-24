@@ -31,7 +31,7 @@ impl Player {
     }
 
     pub fn update(&mut self, op_queue: &mut VecDeque<OperationQuery>) -> GameResult<()> {
-        if let Err(err) = self.vm.run(&mut self.state, op_queue) {
+        if let Err(err) = self.vm.run(0, &mut self.state, op_queue) {
             return Err(GameError::CustomError(format!("error = {:?}", err)));
         }
 
@@ -57,4 +57,6 @@ pub trait OperationProcessor {
         params: Vec<Data>,
         bullet_code: &BulletCode,
     ) -> bool;
+
+    fn kill(&mut self, _id: usize) {}
 }

@@ -24,11 +24,13 @@ impl Data {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExternalOperation {
     Fire(usize),
+    Die,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum OperationQuery {
     Fire(usize, (f32, f32), BulletType, BulletColor, Vec<Data>),
+    Die(usize),
 }
 
 #[derive(Debug, Clone, PartialEq)]

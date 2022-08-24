@@ -13,6 +13,7 @@ pub struct Terminated(pub bool);
 impl VM {
     pub fn run(
         &mut self,
+        id: usize,
         state: &mut dyn State,
         op_queue: &mut VecDeque<OperationQuery>,
     ) -> Result<(), RuntimeError> {
@@ -20,7 +21,7 @@ impl VM {
         self.pc = 0;
 
         loop {
-            match self.run1(state, op_queue) {
+            match self.run1(id, state, op_queue) {
                 Ok(terminated) => {
                     if terminated.0 {
                         break;
@@ -39,6 +40,7 @@ impl VM {
 
     fn run1(
         &mut self,
+        id: usize,
         state: &mut dyn State,
         op_queue: &mut VecDeque<OperationQuery>,
     ) -> Result<Terminated, RuntimeError> {
@@ -69,6 +71,12 @@ impl VM {
                             BulletColor::White,
                             vec![],
                         );
+                        op_queue.push_front(query);
+
+                        Ok(Terminated(false))
+                    }
+                    ExternalOperation::Die => {
+                        let query = OperationQuery::Die(id);
                         op_queue.push_front(query);
 
                         Ok(Terminated(false))

@@ -55,7 +55,7 @@ impl BulletPool {
             let vm = &mut self.vms[idx];
 
             if state.enabled {
-                if let Err(err) = vm.run(state, op_queue) {
+                if let Err(err) = vm.run(idx, state, op_queue) {
                     return Err(GameError::CustomError(format!("error = {:?}", err)));
                 }
             }
@@ -114,5 +114,15 @@ impl OperationProcessor for BulletPool {
         vm.stack.clear();
 
         true
+    }
+
+    fn kill(&mut self, id: usize) {
+        let mut state = self.states[id].borrow_mut();
+        state.enabled = false;
+        state.visible = false;
+
+        let next_disabled = self.first_disabled;
+        self.nexts[id] = next_disabled;
+        self.first_disabled = Some(id);
     }
 }

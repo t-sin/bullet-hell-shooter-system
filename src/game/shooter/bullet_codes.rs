@@ -8,8 +8,22 @@ const CODE_MAP: [(&str, &str); 2] = [
     (
         "bullet1",
         r##"
+
+        proc die_out_of_screen() {
+          if $x < -10 || 610 < $x || $y < -10 || 850 < $y {
+            die()
+          } else {
+            false
+          }
+        }
+
+        global v = 3
+
         proc main() {
-          $y = $y - 5.5
+          die_out_of_screen()
+
+          $y = $y - v
+          v = v * 1.14
         }
         "##,
     ),

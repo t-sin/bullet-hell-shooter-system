@@ -37,6 +37,8 @@ pub trait OperationProcessor {
         params: Vec<Data>,
         bullet_code: Rc<BulletCode>,
     ) -> bool;
+
+    fn kill(&mut self, id: usize);
 }
 
 impl Shooter {
@@ -75,6 +77,10 @@ impl OperationProcessor for Shooter {
     ) -> bool {
         self.bullets.fire(x, y, r#type, color, params, bullet_code)
     }
+
+    fn kill(&mut self, id: usize) {
+        self.bullets.kill(id);
+    }
 }
 
 impl EventHandler for Shooter {
@@ -88,6 +94,9 @@ impl EventHandler for Shooter {
                     OperationQuery::Fire(bullet_id, (x, y), r#type, color, params) => {
                         let bc = self.bullet_codes.by_id[bullet_id].clone();
                         self.fire(x, y, r#type, color, params, bc);
+                    }
+                    OperationQuery::Die(bullet_id) => {
+                        self.kill(bullet_id);
                     }
                 }
             } else {

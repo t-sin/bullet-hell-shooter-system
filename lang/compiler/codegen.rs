@@ -256,10 +256,23 @@ fn codegen_external_op_fire(args: Vec<Expr>, state: &mut CodegenState) -> Result
     Ok(())
 }
 
+fn codegen_external_op_die(args: Vec<Expr>, state: &mut CodegenState) -> Result<(), CodegenError> {
+    if args.len() != 0 {
+        return Err(CodegenError::WrongParamNumberWhileInvokingExternalOp);
+    }
+
+    emit!(state, Inst::Operate(ExternalOperation::Die));
+
+    Ok(())
+}
+
 const EXTERNAL_OPS: [(
     &str,
     &dyn Fn(Vec<Expr>, &mut CodegenState) -> Result<(), CodegenError>,
-); 1] = [("fire", &codegen_external_op_fire)];
+); 2] = [
+    ("fire", &codegen_external_op_fire),
+    ("die", &codegen_external_op_die),
+];
 
 fn codegen_external_op(
     name: &str,
