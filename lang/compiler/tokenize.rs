@@ -263,7 +263,24 @@ mod tokenizer_test {
                 Token::Eof,
             ],
             r"proc main() { return }",
-        )
+        );
+        test_tokenize_1(
+            // this is invalid in terms of parser
+            vec![
+                Token::Keyword(Box::new(Keyword::Proc)),
+                Token::Ident("main".to_string()),
+                Token::Delim(Box::new(Delimiter::OpenParen)),
+                Token::Delim(Box::new(Delimiter::CloseParen)),
+                Token::Delim(Box::new(Delimiter::OpenBrace)),
+                Token::Keyword(Box::new(Keyword::Return)),
+                Token::String("mojiretsu".to_string()),
+                Token::Op(Box::new(BinOp::Plus)),
+                Token::String("".to_string()),
+                Token::Delim(Box::new(Delimiter::CloseBrace)),
+                Token::Eof,
+            ],
+            r##"proc main() { return "mojiretsu" + ""}"##,
+        );
     }
 
     #[test]
