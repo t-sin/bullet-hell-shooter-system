@@ -313,6 +313,7 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
 fn codegen_proc_body(
     name: &str,
     arg_num: usize,
+    ret: Option<Type>,
     body: &[Body],
     state: &mut CodegenState,
 ) -> Result<(), CodegenError> {
@@ -366,12 +367,20 @@ fn codegen_proc_body(
                     }
                     emit!(state, Inst::Term);
                 } else {
+                    if ret.is_none() {
+                        // push dummy value that will be dropped by caller
+                        emit!(state, Inst::Float(-4200000.0));
+                    }
                     emit!(state, Inst::Ret(arg_num));
                 }
 
                 return Ok(());
             }
-            _ => todo!(""),
+            Body::Expr(expr) => {
+                codegen_expr(expr, state)?;
+                emit!(state, Inst::Drop);
+                let _ = state.stack.pop();
+            }
         }
     }
 
@@ -396,6 +405,7 @@ fn insert_return_to_body(name: &str, body: &[Body]) -> Vec<Body> {
             }
         }
     } else {
+        body.push(Body::Return(None));
         body
     }
 }
@@ -427,7 +437,13 @@ fn codegen_proc(
     proc_state.code = vec![];
 
     let body = insert_return_to_body(&name[..], body);
-    codegen_proc_body(&name[..], sig.args.len(), body.as_slice(), &mut proc_state)?;
+    codegen_proc_body(
+        &name[..],
+        sig.args.len(),
+        sig.ret,
+        body.as_slice(),
+        &mut proc_state,
+    )?;
 
     let mut proc = Proc::new();
     proc.signature = Signature::new(sig.args.to_vec(), sig.ret);
@@ -898,6 +914,34 @@ mod codegen_test {
 
             proc main() {
               $x = add_42($x)
+            }
+            "##,
+        );
+    }
+
+    #[test]
+    fn test_codegen_proc_call_without_return() {
+        test_codegen(
+            vec![
+                // proc main()
+                Inst::Float(8.0), // address of do_nothing()
+                Inst::Call,
+                Inst::Drop,
+                Inst::Get(0),
+                Inst::Float(42.0),
+                Inst::Add,
+                Inst::Set(0),
+                Inst::Term,
+                // proc do_nothing()
+                Inst::Float(-4200000.0),
+                Inst::Ret(0),
+            ],
+            r##"
+            proc do_nothing() {}
+
+            proc main() {
+              do_nothing()
+              $x = $x + 42
             }
             "##,
         );
