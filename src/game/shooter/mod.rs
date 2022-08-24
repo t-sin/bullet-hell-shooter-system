@@ -47,27 +47,43 @@ impl Scene for ShooterScene {
 }
 
 impl EventHandler for ShooterScene {
-    fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
-        self.shooter.clear_input();
-        if keyboard::is_key_pressed(ctx, KeyCode::Up) {
-            self.shooter.input(&Input::Up);
+    fn key_down_event(
+        &mut self,
+        _ctx: &mut Context,
+        keycode: KeyCode,
+        keymods: KeyMods,
+        _repeat: bool,
+    ) {
+        match keycode {
+            KeyCode::Up => self.shooter.input(&Input::Up, true),
+            KeyCode::Down => self.shooter.input(&Input::Down, true),
+            KeyCode::Left => self.shooter.input(&Input::Left, true),
+            KeyCode::Right => self.shooter.input(&Input::Right, true),
+            KeyCode::Z => self.shooter.input(&Input::Shot, true),
+            _ => (),
         }
-        if keyboard::is_key_pressed(ctx, KeyCode::Down) {
-            self.shooter.input(&Input::Down);
+        match keymods {
+            KeyMods::SHIFT => self.shooter.input(&Input::Slow, true),
+            _ => (),
         }
-        if keyboard::is_key_pressed(ctx, KeyCode::Left) {
-            self.shooter.input(&Input::Left);
-        }
-        if keyboard::is_key_pressed(ctx, KeyCode::Right) {
-            self.shooter.input(&Input::Right);
-        }
-        if keyboard::is_key_pressed(ctx, KeyCode::Z) {
-            self.shooter.input(&Input::Shot);
-        }
-        if keyboard::is_mod_active(ctx, KeyMods::SHIFT) {
-            self.shooter.input(&Input::Slow);
-        }
+    }
 
+    fn key_up_event(&mut self, _ctx: &mut Context, keycode: KeyCode, keymods: KeyMods) {
+        match keycode {
+            KeyCode::Up => self.shooter.input(&Input::Up, false),
+            KeyCode::Down => self.shooter.input(&Input::Down, false),
+            KeyCode::Left => self.shooter.input(&Input::Left, false),
+            KeyCode::Right => self.shooter.input(&Input::Right, false),
+            KeyCode::Z => self.shooter.input(&Input::Shot, false),
+            _ => (),
+        }
+        match keymods {
+            KeyMods::SHIFT => self.shooter.input(&Input::Slow, false),
+            _ => (),
+        }
+    }
+
+    fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         self.shooter.update(ctx)?;
 
         Ok(())

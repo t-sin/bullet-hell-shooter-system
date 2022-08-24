@@ -13,6 +13,7 @@ pub struct Shooter {
     code_map: BulletCodeMap,
 }
 
+#[derive(Debug)]
 pub enum Input {
     Up,
     Down,
@@ -33,18 +34,14 @@ impl Shooter {
         }
     }
 
-    pub fn clear_input(&mut self) {
-        self.player.state.input = InputState::default();
-    }
-
-    pub fn input(&mut self, input: &Input) {
+    pub fn input(&mut self, input: &Input, b: bool) {
         match input {
-            Input::Up => self.player.state.input.up = true,
-            Input::Down => self.player.state.input.down = true,
-            Input::Left => self.player.state.input.left = true,
-            Input::Right => self.player.state.input.right = true,
-            Input::Shot => self.player.state.input.shot = true,
-            Input::Slow => self.player.state.input.slow = true,
+            Input::Up => self.player.state.input.up = b,
+            Input::Down => self.player.state.input.down = b,
+            Input::Left => self.player.state.input.left = b,
+            Input::Right => self.player.state.input.right = b,
+            Input::Shot => self.player.state.input.shot = b,
+            Input::Slow => self.player.state.input.slow = b,
         }
     }
 }
