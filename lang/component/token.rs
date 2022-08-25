@@ -37,6 +37,8 @@ pub enum BinOp {
     Gte,      // '>='
     Lte,      // '<='
     Eq,       // '=='
+    LogOr,    // '||'
+    LogAnd,   // '&&'
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

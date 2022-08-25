@@ -59,6 +59,9 @@ pub enum Op2 {
     Gte,
     Lte,
     Eq,
+    // precedence level 4
+    LogOr,
+    LogAnd,
 }
 
 #[derive(Debug, Clone, PartialEq)]

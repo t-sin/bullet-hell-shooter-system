@@ -464,6 +464,41 @@ fn parse_expr_op_level3<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
     }
 }
 
+fn parse_expr_op_level4_foldl<'a>(expr1: Expr, opterms: Vec<(&'a Token, Expr)>) -> Expr {
+    match &opterms[..] {
+        [(Token::Op(op), expr2), rest @ ..] => {
+            let op = match **op {
+                BinOp::LogOr => Op2::LogOr,
+                BinOp::LogAnd => Op2::LogAnd,
+                _ => unreachable!(),
+            };
+            let expr = Expr::Op2(op, Box::new(expr1), Box::new(expr2.clone()));
+            parse_expr_op_level4_foldl(expr, rest.to_vec())
+        }
+        [(_, _), ..] => unreachable!(),
+        [] => expr1,
+    }
+}
+
+// '||', '&&'
+fn parse_expr_op_level4<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
+    match tuple((
+        parse_expr_op_level3,
+        many0(tuple((
+            alt((
+                token(Token::Op(Box::new(BinOp::LogOr))),
+                token(Token::Op(Box::new(BinOp::LogAnd))),
+            )),
+            parse_expr_op_level3,
+        ))),
+    ))(t)
+    {
+        Ok((t, (level3, vec))) if vec.len() == 0 => Ok((t, level3)),
+        Ok((t, (level3, opexprs))) => Ok((t, parse_expr_op_level4_foldl(level3, opexprs))),
+        Err(err) => Err(err),
+    }
+}
+
 fn parse_expr_if<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     let p = match tuple((
         token(Token::Keyword(Box::new(Keyword::If))),
@@ -496,7 +531,7 @@ fn parse_expr_if<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<
 }
 
 fn parse_expr<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    let p = parse_expr_op_level3(t);
+    let p = parse_expr_op_level4(t);
     println!("parse_expr() = {:?}", p);
     p
 }
@@ -847,6 +882,29 @@ mod parser_test {
             ),
             "proc main() { let a = 1.0 == 2.0 + 3.0 * 4.0 }",
         );
+        test_parse_1(
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                Signature::new(vec![], None),
+                vec![Body::LexicalDefine(
+                    Symbol::Var(Name("a".to_string())),
+                    Expr::Op2(
+                        Op2::Eq,
+                        Box::new(Expr::Float(1.0)),
+                        Box::new(Expr::Op2(
+                            Op2::Add,
+                            Box::new(Expr::Float(2.0)),
+                            Box::new(Expr::Op2(
+                                Op2::Mul,
+                                Box::new(Expr::Float(3.0)),
+                                Box::new(Expr::Float(4.0)),
+                            )),
+                        )),
+                    ),
+                )],
+            ),
+            "proc main() { let a = 1.0 == 2.0 + 3.0 * 4.0 }",
+        );
     }
 
     #[test]
@@ -881,21 +939,21 @@ mod parser_test {
                 vec![Body::LexicalDefine(
                     Symbol::Var(Name("a".to_string())),
                     Expr::Op2(
-                        Op2::Mul,
+                        Op2::LogOr,
+                        Box::new(Expr::Bool(true)),
                         Box::new(Expr::Op2(
-                            Op2::Add,
+                            Op2::Eq,
+                            Box::new(Expr::Float(42.0)),
                             Box::new(Expr::Op2(
-                                Op2::Eq,
-                                Box::new(Expr::Float(1.0)),
+                                Op2::Mul,
+                                Box::new(Expr::Float(21.0)),
                                 Box::new(Expr::Float(2.0)),
                             )),
-                            Box::new(Expr::Float(3.0)),
                         )),
-                        Box::new(Expr::Float(4.0)),
                     ),
                 )],
             ),
-            "proc main() { let a = ((1.0 == 2.0) + 3.0) * 4.0 }",
+            "proc main() { let a = true || 42 == 21 * 2 }",
         );
     }
 

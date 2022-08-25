@@ -333,13 +333,28 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
                     Op2::Add => Inst::Add,
                     Op2::Sub => Inst::Sub,
                     Op2::Mul => Inst::Mul,
-                    _ => todo!("implemented yet!"),
+                    Op2::Div => Inst::Div,
+                    Op2::Mod => Inst::Mod,
+                    Op2::Gt => Inst::Gt,
+                    Op2::Lt => Inst::Lt,
+                    Op2::Gte => Inst::Gte,
+                    Op2::Lte => Inst::Lte,
+                    Op2::Eq => Inst::EqFloat,
+                    Op2::LogOr => Inst::LogOr,
+                    Op2::LogAnd => Inst::LogAnd,
                 }
             );
             let _ = state.stack.pop();
             let _ = state.stack.pop();
 
-            state.stack.push(StackData::Float);
+            match op {
+                Op2::Add | Op2::Sub | Op2::Mul | Op2::Div | Op2::Mod => {
+                    state.stack.push(StackData::Float)
+                }
+                Op2::Gt | Op2::Lt | Op2::Gte | Op2::Lte | Op2::Eq | Op2::LogOr | Op2::LogAnd => {
+                    state.stack.push(StackData::Bool)
+                }
+            };
         }
         Expr::If(cond, tru, fls) => {
             codegen_expr(cond, state)?;

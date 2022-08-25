@@ -148,7 +148,7 @@ impl VM {
                         _ => Ok(Terminated(false)),
                     }
                 }
-                Inst::Add | Inst::Sub | Inst::Mul => {
+                Inst::Add | Inst::Sub | Inst::Mul | Inst::Div | Inst::Mod => {
                     let b = stack_pop!(self.stack);
                     let a = stack_pop!(self.stack);
                     #[allow(irrefutable_let_patterns)]
@@ -159,6 +159,8 @@ impl VM {
                         Inst::Add => a + b,
                         Inst::Sub => a - b,
                         Inst::Mul => a * b,
+                        Inst::Div => a / b,
+                        Inst::Mod => a % b,
                         _ => unreachable!(),
                     }));
 
@@ -180,7 +182,7 @@ impl VM {
 
                     Ok(Terminated(false))
                 }
-                Inst::EqFloat => {
+                Inst::Gt | Inst::Lt | Inst::Gte | Inst::Lte | Inst::EqFloat => {
                     let b = stack_pop!(self.stack);
                     let a = stack_pop!(self.stack);
                     #[allow(irrefutable_let_patterns)]
@@ -188,7 +190,16 @@ impl VM {
                     #[allow(irrefutable_let_patterns)]
                     let b = float_data!(b);
 
-                    if a == b {
+                    let res = match inst {
+                        Inst::Gt => a > b,
+                        Inst::Lt => a < b,
+                        Inst::Gte => a >= b,
+                        Inst::Lte => a <= b,
+                        Inst::EqFloat => a == b,
+                        _ => unreachable!(),
+                    };
+
+                    if res {
                         self.stack.push(Data::Bool(true));
                     } else {
                         self.stack.push(Data::Bool(false));
@@ -196,18 +207,24 @@ impl VM {
 
                     Ok(Terminated(false))
                 }
-                Inst::Lt => {
+                Inst::LogOr | Inst::LogAnd => {
                     let b = stack_pop!(self.stack);
                     let a = stack_pop!(self.stack);
                     #[allow(irrefutable_let_patterns)]
-                    let a = float_data!(a);
+                    let a = bool_data!(a);
                     #[allow(irrefutable_let_patterns)]
-                    let b = float_data!(b);
+                    let b = bool_data!(b);
 
-                    if a > b {
-                        self.stack.push(Data::Float(1.0));
+                    let res = match inst {
+                        Inst::LogOr => a || b,
+                        Inst::LogAnd => a && b,
+                        _ => unreachable!(),
+                    };
+
+                    if res {
+                        self.stack.push(Data::Bool(true));
                     } else {
-                        self.stack.push(Data::Float(0.0));
+                        self.stack.push(Data::Bool(false));
                     }
 
                     Ok(Terminated(false))

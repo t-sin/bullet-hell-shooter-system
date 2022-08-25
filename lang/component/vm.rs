@@ -49,12 +49,19 @@ pub enum Inst {
     Add,
     Sub,
     Mul,
+    Div,
+    Mod,
     // comparators
     EqInt,
     EqFloat,
+    Gt,
     Lt,
+    Gte,
+    Lte,
     // logical
     Not,
+    LogOr,
+    LogAnd,
     // stack operations
     Dup,
     Drop,

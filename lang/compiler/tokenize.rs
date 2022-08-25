@@ -115,6 +115,8 @@ fn tokenize_op(s: &str) -> IResult<&str, Token> {
         tag(">="),
         tag("<="),
         tag("=="),
+        tag("||"),
+        tag("&&"),
     ))(s)?
     {
         (s, "+") => Ok((s, Token::Op(Box::new(BinOp::Plus)))),
@@ -127,6 +129,8 @@ fn tokenize_op(s: &str) -> IResult<&str, Token> {
         (s, ">=") => Ok((s, Token::Op(Box::new(BinOp::Gte)))),
         (s, "<=") => Ok((s, Token::Op(Box::new(BinOp::Lte)))),
         (s, "==") => Ok((s, Token::Op(Box::new(BinOp::Eq)))),
+        (s, "||") => Ok((s, Token::Op(Box::new(BinOp::LogOr)))),
+        (s, "&&") => Ok((s, Token::Op(Box::new(BinOp::LogAnd)))),
         (s, _) => Err(Err::Error(Error::new(s, ErrorKind::Char))),
     }
 }
@@ -332,6 +336,8 @@ mod tokenizer_test {
                 Token::Ident("new_x".to_string()),
                 Token::Op(Box::new(BinOp::Gt)),
                 Token::Float(Float(420.0)),
+                Token::Op(Box::new(BinOp::LogAnd)),
+                Token::True,
                 Token::Delim(Box::new(Delimiter::OpenBrace)),
                 Token::Ident("$x".to_string()),
                 Token::Assign,
@@ -352,7 +358,7 @@ mod tokenizer_test {
               proc main() {
                 let new_x = $x + 1.0
 
-                if new_x > 420.0 { $x = 420.0 } else { $x = new_x }
+                if new_x > 420.0 && true { $x = 420.0 } else { $x = new_x }
               }
             "###,
         )
