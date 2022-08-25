@@ -48,10 +48,6 @@ impl VM {
         let inst = self.code.get(pc);
         self.pc += 1;
 
-        println!("=============================");
-        println!("stack = {:?}", self.stack);
-        println!("pc = {}, inst = {:?}", pc, inst);
-
         match inst {
             Some(inst) => match inst {
                 Inst::Term => Ok(Terminated(true)),

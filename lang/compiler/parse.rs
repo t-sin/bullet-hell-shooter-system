@@ -226,7 +226,7 @@ fn parse_body_block_assignment<'a>(
 }
 
 fn parse_body_block<'a>(t: Input<'a>) -> IResult<Input<'a>, Vec<Body>, ParseError<Input<'a>>> {
-    let p = match delimited(
+    match delimited(
         token(Token::Delim(Box::new(Delimiter::OpenBrace))),
         tuple((
             many0(alt((
@@ -257,9 +257,7 @@ fn parse_body_block<'a>(t: Input<'a>) -> IResult<Input<'a>, Vec<Body>, ParseErro
                 .collect(),
         )),
         Err(err) => Err(err),
-    };
-    println!("parse_defproc_body() = {:?}", p);
-    p
+    }
 }
 
 fn parse_expr_paren<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
@@ -500,7 +498,7 @@ fn parse_expr_op_level4<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
 }
 
 fn parse_expr_if<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    let p = match tuple((
+    match tuple((
         token(Token::Keyword(Box::new(Keyword::If))),
         parse_expr,
         delimited(
@@ -533,15 +531,11 @@ fn parse_expr_if<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<
             ),
         )),
         Err(err) => Err(err),
-    };
-    println!("parse_expr_if() = {:?}", p);
-    p
+    }
 }
 
 fn parse_expr<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
-    let p = parse_expr_op_level4(t);
-    println!("parse_expr() = {:?}", p);
-    p
+    parse_expr_op_level4(t)
 }
 
 fn parse_global_define<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, ParseError<Input<'a>>> {
@@ -658,14 +652,12 @@ fn parse_defproc<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, ParseError<
 type Parse1Result<'a> = IResult<Input<'a>, Option<SyntaxTree>, ParseError<Input<'a>>>;
 
 fn parse_1<'a>(t: Input<'a>) -> Parse1Result<'a> {
-    let p = alt((
+    alt((
         // value(None, token_type_of(Token::LineComment("".to_string()))),
         map(token(Token::Newline), |_| None),
         map(parse_global_define, |ga| Some(ga)),
         map(parse_defproc, |f| Some(f)),
-    ))(t);
-    println!("parse_1() = {:?}", p);
-    p
+    ))(t)
 }
 
 type ParseResult<'a> = IResult<Input<'a>, Vec<SyntaxTree>, ParseError<Input<'a>>>;
@@ -680,10 +672,7 @@ pub fn parse<'a>(t: Input<'a>) -> ParseResult<'a> {
                 .map(|o| o.unwrap())
                 .collect(),
         )),
-        Err(err) => {
-            println!("parse() = {:?}", err);
-            Err(err)
-        }
+        Err(err) => Err(err),
     }
 }
 
