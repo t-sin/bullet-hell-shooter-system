@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::VecDeque, ops::DerefMut, rc::Rc};
 
-use ggez::{Context, GameError, GameResult};
+use ggez::{graphics, timer, Context, GameError, GameResult};
 
 use lang_compiler::BulletCode;
 use lang_component::{
@@ -16,6 +16,7 @@ pub struct BulletPool {
     pub vms: Vec<VM>,
     pub nexts: Vec<Option<usize>>,
     pub first_disabled: Option<usize>,
+    enabled_count: usize,
 }
 
 impl BulletPool {
@@ -45,6 +46,7 @@ impl BulletPool {
             nexts,
             vms,
             first_disabled: Some(0),
+            enabled_count: 0,
         }
     }
 
@@ -75,6 +77,18 @@ impl BulletPool {
             }
         }
 
+        let debug_msg = format!(
+            r##"
+fps: {}
+object num: {}
+"##,
+            timer::fps(ctx),
+            self.enabled_count
+        );
+        let debug_msg = graphics::Text::new(debug_msg);
+        let param = graphics::DrawParam::default().dest(glam::vec2(10.0, 0.0));
+        graphics::draw(ctx, &debug_msg, param)?;
+
         Ok(())
     }
 }
@@ -97,6 +111,7 @@ impl OperationProcessor for BulletPool {
 
         self.first_disabled = self.nexts[idx];
         self.nexts[idx] = None;
+        self.enabled_count += 1;
 
         let mut state = self.states[idx].borrow_mut();
         state.enabled = true;
@@ -117,6 +132,8 @@ impl OperationProcessor for BulletPool {
     }
 
     fn kill(&mut self, id: usize) {
+        self.enabled_count -= 1;
+
         let mut state = self.states[id].borrow_mut();
         state.enabled = false;
         state.visible = false;

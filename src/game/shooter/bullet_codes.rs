@@ -76,6 +76,8 @@ impl BulletCodes {
             };
             let bc = Rc::new(bc);
 
+            eprintln!("[Bullet: {}] VM code = {:?}", bc.name, bc.code);
+
             id += 1;
             map.insert(name.to_string(), bc.clone());
             vec.push(bc.clone());

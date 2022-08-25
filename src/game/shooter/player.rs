@@ -22,7 +22,6 @@ impl Player {
         let mut vm = VM::new();
 
         if let Some(bc) = codes.by_name.get("player") {
-            eprintln!("VM code = {:?}", bc.code);
             vm.set_code(bc.code.clone());
             vm.set_memory(bc.initial_memory.clone());
         }
