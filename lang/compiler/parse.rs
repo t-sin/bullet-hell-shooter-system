@@ -505,18 +505,26 @@ fn parse_expr_if<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<
         parse_expr,
         delimited(
             token(Token::Delim(Box::new(Delimiter::OpenBrace))),
-            parse_expr,
+            tuple((
+                opt(token(Token::Newline)),
+                parse_expr,
+                opt(token(Token::Newline)),
+            )),
             token(Token::Delim(Box::new(Delimiter::CloseBrace))),
         ),
         token(Token::Keyword(Box::new(Keyword::Else))),
         delimited(
             token(Token::Delim(Box::new(Delimiter::OpenBrace))),
-            parse_expr,
+            tuple((
+                opt(token(Token::Newline)),
+                parse_expr,
+                opt(token(Token::Newline)),
+            )),
             token(Token::Delim(Box::new(Delimiter::CloseBrace))),
         ),
     ))(t)
     {
-        Ok((t, (_, cond_clause, true_clause, _, false_clause))) => Ok((
+        Ok((t, (_, cond_clause, (_, true_clause, _), _, (_, false_clause, _)))) => Ok((
             t,
             Expr::If(
                 Box::new(cond_clause),
