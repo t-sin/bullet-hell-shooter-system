@@ -499,27 +499,34 @@ fn codegen_proc_body(
 
 fn insert_return_to_body(name: &str, body: &[Body]) -> Vec<Body> {
     let mut body = body.to_vec();
+    let mut should_be_replaced = false;
 
     if let Some(statement) = body.last() {
         match statement {
-            Body::Return(_) => body,
-            Body::Expr(expr) => {
+            Body::Return(_) => (),
+            Body::Expr(_) => {
                 if name == "main" {
                     body.push(Body::Return(None));
                 } else {
-                    body.push(Body::Return(Some(*expr.clone())));
+                    should_be_replaced = true;
                 }
-                body
             }
             _ => {
                 body.push(Body::Return(None));
-                body
             }
         }
     } else {
         body.push(Body::Return(None));
-        body
     }
+
+    if should_be_replaced {
+        if let Body::Expr(expr) = body[body.len() - 1].clone() {
+            let len = body.len();
+            body[len - 1] = Body::Return(Some(*expr.clone()));
+        }
+    }
+
+    body
 }
 
 fn codegen_proc(
