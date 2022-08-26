@@ -15,5 +15,5 @@ lang_component = { path = "./lang/component" }
 lang_vm = { path = "./lang/vm" }
 lang_compiler = { path = "./lang/compiler" }
 
-ggez = "0.7.0"
+ggez = "0.8.0-rc0"
 glam = "0.20.5"

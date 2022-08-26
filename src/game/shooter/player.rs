@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use ggez::{Context, GameError, GameResult};
+use ggez::{graphics, Context, GameError, GameResult};
 
 use lang_compiler::BulletCode;
 use lang_component::{
@@ -37,8 +37,8 @@ impl Player {
         Ok(())
     }
 
-    pub fn draw(&self, ctx: &mut Context) -> GameResult<()> {
-        if let Err(err) = self.state.draw(ctx) {
+    pub fn draw(&self, ctx: &mut Context, canvas: &mut graphics::Canvas) -> GameResult<()> {
+        if let Err(err) = self.state.draw(ctx, canvas) {
             return Err(GameError::CustomError(format!("error = {:?}", err)));
         }
 

@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, rc::Rc};
 
-use ggez::{event::EventHandler, Context, GameResult};
+use ggez::{graphics, Context, GameResult};
 
 use lang_compiler::BulletCode;
 use lang_component::{
@@ -83,8 +83,8 @@ impl OperationProcessor for Shooter {
     }
 }
 
-impl EventHandler for Shooter {
-    fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
+impl Shooter {
+    pub fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
         self.player.update(&mut self.op_queue)?;
         self.bullets.update(&mut self.op_queue)?;
 
@@ -107,9 +107,9 @@ impl EventHandler for Shooter {
         Ok(())
     }
 
-    fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        self.player.draw(ctx)?;
-        self.bullets.draw(ctx)?;
+    pub fn draw(&mut self, ctx: &mut Context, canvas: &mut graphics::Canvas) -> GameResult<()> {
+        self.player.draw(ctx, canvas)?;
+        self.bullets.draw(ctx, canvas)?;
 
         Ok(())
     }

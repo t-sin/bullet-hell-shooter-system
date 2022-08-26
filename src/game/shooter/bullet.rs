@@ -7,6 +7,7 @@ use ggez::{
         Color,
         DrawMode,
         DrawParam,
+        Mesh,
         MeshBuilder,
     },
     mint::Point2,
@@ -169,7 +170,7 @@ impl State for BulletState {
 }
 
 impl SceneDrawable for BulletState {
-    fn draw(&self, ctx: &mut Context) -> GameResult<()> {
+    fn draw(&self, ctx: &mut Context, canvas: &mut graphics::Canvas) -> GameResult<()> {
         let color = match self.appearance.color {
             BulletColor::White => Color::from_rgb(255, 255, 255),
         };
@@ -184,24 +185,28 @@ impl SceneDrawable for BulletState {
 
                 let dest = glam::vec2(0.0, 0.0) + pos;
                 let param = param.dest::<Point2<f32>>(dest.into());
-                let mesh = MeshBuilder::new()
-                    .polygon(DrawMode::stroke(1.5), &POINTS, color)?
-                    .build(ctx)?;
-                graphics::draw(ctx, &mesh, param)?;
+                let mut mb = MeshBuilder::new();
+                let mesh = mb.polygon(DrawMode::stroke(1.5), &POINTS, color)?.build();
+                let mesh = Mesh::from_data(ctx, mesh);
+                canvas.draw(&mesh, param);
 
-                let hit_area = MeshBuilder::new()
+                let mut mb = MeshBuilder::new();
+                let hit_area = mb
                     .circle(DrawMode::stroke(1.0), [0.0, 0.0], 5.0, 1.0, color)?
                     //.circle(DrawMode::stroke(1.0), glam::vec2(0.0, 0.0), 3.0, 1.0, color)?
-                    .build(ctx)?;
-                graphics::draw(ctx, &hit_area, param)?;
+                    .build();
+                let hit_area = Mesh::from_data(ctx, hit_area);
+                canvas.draw(&hit_area, param);
             }
             BulletType::Bullet1 => {
                 //                let dest = glam::vec2(-5.0, -5.0) + pos;
                 //                let param = param.dest::<Point2<f32>>(dest.into());
-                let bullet = MeshBuilder::new()
+                let mut mb = MeshBuilder::new();
+                let bullet = mb
                     .circle(DrawMode::stroke(1.0), pos, 4.0, 1.0, color)?
-                    .build(ctx)?;
-                graphics::draw(ctx, &bullet, param)?;
+                    .build();
+                let bullet = Mesh::from_data(ctx, bullet);
+                canvas.draw(&bullet, param);
             }
         };
 

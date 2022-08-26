@@ -66,12 +66,12 @@ impl BulletPool {
         Ok(())
     }
 
-    pub fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
+    pub fn draw(&mut self, ctx: &mut Context, canvas: &mut graphics::Canvas) -> GameResult<()> {
         for idx in 0..Self::BULLET_MAX {
             let state = self.states[idx].borrow();
 
             if state.visible {
-                if let Err(err) = state.draw(ctx) {
+                if let Err(err) = state.draw(ctx, canvas) {
                     return Err(GameError::CustomError(format!("error = {:?}", err)));
                 }
             }
@@ -82,12 +82,12 @@ impl BulletPool {
 fps: {}
 object num: {}
 "##,
-            timer::fps(ctx),
+            ctx.time.fps(),
             self.enabled_count
         );
         let debug_msg = graphics::Text::new(debug_msg);
         let param = graphics::DrawParam::default().dest(glam::vec2(10.0, 0.0));
-        graphics::draw(ctx, &debug_msg, param)?;
+        canvas.draw(&debug_msg, param);
 
         Ok(())
     }

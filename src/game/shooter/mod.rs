@@ -6,10 +6,9 @@ use ggez::{
         Color,
         DrawMode,
         DrawParam,
-        MeshBuilder,
         Rect,
     },
-    input::keyboard::{KeyCode, KeyMods},
+    input::keyboard::{KeyCode, KeyInput, KeyMods},
     Context, GameResult,
 };
 use glam;
@@ -25,7 +24,7 @@ use crate::{constant, game::Scene};
 use shooter::{Input, Shooter};
 
 trait SceneDrawable {
-    fn draw(&self, ctx: &mut Context) -> GameResult<()>;
+    fn draw(&self, ctx: &mut Context, canvas: &mut graphics::Canvas) -> GameResult<()>;
 }
 
 pub struct ShooterScene {
@@ -50,37 +49,40 @@ impl EventHandler for ShooterScene {
     fn key_down_event(
         &mut self,
         _ctx: &mut Context,
-        keycode: KeyCode,
-        keymods: KeyMods,
+        input: KeyInput,
         _repeat: bool,
-    ) {
-        match keycode {
-            KeyCode::Up => self.shooter.input(&Input::Up, true),
-            KeyCode::Down => self.shooter.input(&Input::Down, true),
-            KeyCode::Left => self.shooter.input(&Input::Left, true),
-            KeyCode::Right => self.shooter.input(&Input::Right, true),
-            KeyCode::Z => self.shooter.input(&Input::Shot, true),
+    ) -> GameResult<()> {
+        match input.keycode {
+            Some(KeyCode::Up) => self.shooter.input(&Input::Up, true),
+            Some(KeyCode::Down) => self.shooter.input(&Input::Down, true),
+            Some(KeyCode::Left) => self.shooter.input(&Input::Left, true),
+            Some(KeyCode::Right) => self.shooter.input(&Input::Right, true),
+            Some(KeyCode::Z) => self.shooter.input(&Input::Shot, true),
             _ => (),
         }
-        match keymods {
+        match input.mods {
             KeyMods::SHIFT => self.shooter.input(&Input::Slow, true),
             _ => (),
         }
+
+        Ok(())
     }
 
-    fn key_up_event(&mut self, _ctx: &mut Context, keycode: KeyCode, keymods: KeyMods) {
-        match keycode {
-            KeyCode::Up => self.shooter.input(&Input::Up, false),
-            KeyCode::Down => self.shooter.input(&Input::Down, false),
-            KeyCode::Left => self.shooter.input(&Input::Left, false),
-            KeyCode::Right => self.shooter.input(&Input::Right, false),
-            KeyCode::Z => self.shooter.input(&Input::Shot, false),
+    fn key_up_event(&mut self, _ctx: &mut Context, input: KeyInput) -> GameResult<()> {
+        match input.keycode {
+            Some(KeyCode::Up) => self.shooter.input(&Input::Up, false),
+            Some(KeyCode::Down) => self.shooter.input(&Input::Down, false),
+            Some(KeyCode::Left) => self.shooter.input(&Input::Left, false),
+            Some(KeyCode::Right) => self.shooter.input(&Input::Right, false),
+            Some(KeyCode::Z) => self.shooter.input(&Input::Shot, false),
             _ => (),
         }
-        match keymods {
+        match input.mods {
             KeyMods::SHIFT => self.shooter.input(&Input::Slow, false),
             _ => (),
         }
+
+        Ok(())
     }
 
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
@@ -90,21 +92,17 @@ impl EventHandler for ShooterScene {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        // let mut canvas = Canvas::new(
-        //     ctx,
-        //     constant::WIDTH as u16,
-        //     constant::HEIGHT as u16,
-        //     conf::NumSamples::One,
-        //     graphics::get_window_color_format(ctx),
-        // )?;
-        // graphics::set_canvas(ctx, Some(&canvas));
+        let mut canvas = graphics::Canvas::from_frame(
+            ctx,
+            graphics::CanvasLoadOp::Clear([0.0, 0.1, 0.1, 1.0].into()),
+        );
 
         static BG_RECT: Rect = Rect::new(0.0, 0.0, constant::WIDTH, constant::HEIGHT);
         static BG_COLOR: Color = Color::new(0.0, 0.1, 0.1, 1.0);
-        let bg = MeshBuilder::new()
-            .rectangle(DrawMode::fill(), BG_RECT, BG_COLOR)?
-            .build(ctx)?;
-        graphics::draw(ctx, &bg, DrawParam::default().dest(glam::vec2(0.0, 0.0)))?;
+        let mut mb = graphics::MeshBuilder::new();
+        let bg = mb.rectangle(DrawMode::fill(), BG_RECT, BG_COLOR)?;
+        let bg = graphics::Mesh::from_data(ctx, bg.build());
+        canvas.draw(&bg, DrawParam::default().dest(glam::vec2(0.0, 0.0)));
 
         static SHOOTER_AREA_RECT: Rect = Rect::new(
             constant::SHOOTER_OFFSET_X,
@@ -114,24 +112,22 @@ impl EventHandler for ShooterScene {
         );
         static SHOOTER_AREA_COLOR: Color = Color::new(0.0, 0.07, 0.1, 0.98);
         static SHOOTER_BORDER_COLOR: Color = Color::new(0.0, 0.6, 0.8, 1.0);
-        let shooter_area = MeshBuilder::new()
-            .rectangle(DrawMode::fill(), SHOOTER_AREA_RECT, SHOOTER_AREA_COLOR)?
-            .build(ctx)?;
-        let shooter_border = MeshBuilder::new()
-            .rectangle(
-                DrawMode::stroke(1.0),
-                SHOOTER_AREA_RECT,
-                SHOOTER_BORDER_COLOR,
-            )?
-            .build(ctx)?;
-        graphics::draw(ctx, &shooter_area, DrawParam::default())?;
-        graphics::draw(ctx, &shooter_border, DrawParam::default())?;
+        let mut mb = graphics::MeshBuilder::new();
+        let shooter_area = mb.rectangle(DrawMode::fill(), SHOOTER_AREA_RECT, SHOOTER_AREA_COLOR)?;
+        let shooter_area = graphics::Mesh::from_data(ctx, shooter_area.build());
+        let mut mb = graphics::MeshBuilder::new();
+        let shooter_border = mb.rectangle(
+            DrawMode::stroke(1.0),
+            SHOOTER_AREA_RECT,
+            SHOOTER_BORDER_COLOR,
+        )?;
+        let shooter_border = graphics::Mesh::from_data(ctx, shooter_border.build());
+        canvas.draw(&shooter_area, DrawParam::default());
+        canvas.draw(&shooter_border, DrawParam::default());
 
-        self.shooter.draw(ctx)?;
+        self.shooter.draw(ctx, &mut canvas)?;
 
-        graphics::present(ctx)?;
-        // graphics::set_canvas(ctx, None);
-        // canvas.set_blend_mode(Some(BlendMode::Premultiplied));
+        canvas.finish(ctx)?;
 
         Ok(())
     }
