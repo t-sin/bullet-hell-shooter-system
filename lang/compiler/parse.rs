@@ -6,7 +6,7 @@ use nom::{
     Err, IResult,
 };
 
-use lang_component::{syntax::*, token::*};
+use lang_component::{bullet::*, syntax::*, token::*};
 
 // ErrorKinds for this bullet-hell lang.
 #[derive(Debug, Clone)]
@@ -22,6 +22,8 @@ pub enum ErrorKind {
     InvalidProcCall,
     EmptyName,
     NotAnExprTerm,
+    UnknownBulletId(String),
+    UnknownStateId(String),
 }
 
 // Represents parser errors.
@@ -304,6 +306,35 @@ fn parse_expr_proc_call<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
     }
 }
 
+fn parse_expr_bullet_ref<'a>(t: Input<'a>) -> IResult<Input<'a>, Symbol, ParseError<Input<'a>>> {
+    match tuple((
+        token_type(Token::Keyword(Box::new(Keyword::Player))),
+        token(Token::Delim(Box::new(Delimiter::Dot))),
+        token_type(Token::Ident("".to_string())),
+    ))(t)
+    {
+        Ok((t, (_, _, Token::Ident(state)))) => {
+            let bullet = BulletId::Player;
+
+            let state = match &state[..] {
+                "x" => StateId::PosX,
+                "y" => StateId::PosY,
+                _ => {
+                    return Err(Err::Error(ParseError::new(
+                        t,
+                        ErrorKind::UnknownStateId(state.to_string()),
+                        None,
+                    )))
+                }
+            };
+
+            Ok((t, Symbol::BulletRef(bullet, state)))
+        }
+        Ok((_, _)) => unreachable!(),
+        Err(err) => Err(err),
+    }
+}
+
 fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     if let Ok(_) = peek(parse_expr_proc_call)(t) {
         return parse_expr_proc_call(t);
@@ -315,19 +346,28 @@ fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Inpu
         token_type(Token::Float(Float(0.0))),
         token_type(Token::String("".to_string())),
         token_type(Token::Ident("".to_string())),
+        token(Token::Keyword(Box::new(Keyword::Player))),
     ))(t)
     {
         Ok((t, Token::True)) => Ok((t, Expr::Bool(true))),
         Ok((t, Token::False)) => Ok((t, Expr::Bool(false))),
         Ok((t, Token::Float(Float(f)))) => Ok((t, Expr::Float(*f))),
         Ok((t, Token::String(s))) => Ok((t, Expr::String(s.to_string()))),
-        Ok((t, Token::Ident(name))) => {
+        Ok((rest, Token::Ident(name))) => {
             if let Some(name) = make_symbol(name) {
-                Ok((t, Expr::Symbol(name)))
+                Ok((rest, Expr::Symbol(name)))
             } else {
-                Err(Err::Error(ParseError::new(t, ErrorKind::EmptyName, None)))
+                Err(Err::Error(ParseError::new(
+                    rest,
+                    ErrorKind::EmptyName,
+                    None,
+                )))
             }
         }
+        Ok((_, Token::Keyword(_))) => match parse_expr_bullet_ref(t) {
+            Ok((t, sym)) => Ok((t, Expr::Symbol(sym))),
+            Err(err) => Err(err),
+        },
         Ok((_, _)) => unreachable!(),
         Err(Err::Error(err)) => {
             match peek(alt((
@@ -1147,6 +1187,25 @@ mod parser_test {
             r##"
             proc main() {
               $x = "mojiretsu"
+            }
+            "##,
+        );
+    }
+
+    #[test]
+    fn test_parse_bullet_ref() {
+        test_parse_1(
+            SyntaxTree::DefProc(
+                Name("main".to_string()),
+                Signature::new(vec![], None),
+                vec![Body::Assignment(
+                    Symbol::State(Name("x".to_string())),
+                    Expr::Symbol(Symbol::BulletRef(BulletId::Player, StateId::PosX)),
+                )],
+            ),
+            r##"
+            proc main() {
+              $x = player.x
             }
             "##,
         );

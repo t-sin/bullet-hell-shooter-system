@@ -48,6 +48,7 @@ fn tokenize_delimiter_str(s: &str) -> IResult<&str, &str> {
         tag(":"),
         tag(","),
         tag("->"),
+        tag("."),
     ))(s)
 }
 
@@ -60,6 +61,7 @@ fn tokenize_delimiter(s: &str) -> IResult<&str, Token> {
         (s, ":") => Ok((s, Token::Delim(Box::new(Delimiter::Colon)))),
         (s, ",") => Ok((s, Token::Delim(Box::new(Delimiter::Camma)))),
         (s, "->") => Ok((s, Token::Delim(Box::new(Delimiter::Arrow)))),
+        (s, ".") => Ok((s, Token::Delim(Box::new(Delimiter::Dot)))),
         (s, _) => Err(Err::Error(Error::new(s, ErrorKind::Char))),
     }
 }
@@ -89,6 +91,7 @@ fn tokenize_keyword(s: &str) -> IResult<&str, Token> {
             tag("else"),
             tag("let"),
             tag("global"),
+            tag("player"),
         )),
         alt((space1, peek(tokenize_delimiter_str))),
     ))(s)?
@@ -99,6 +102,7 @@ fn tokenize_keyword(s: &str) -> IResult<&str, Token> {
         (s, ("else", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Else)))),
         (s, ("let", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Let)))),
         (s, ("global", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Global)))),
+        (s, ("player", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Player)))),
         (s, _) => Err(Err::Error(Error::new(s, ErrorKind::Char))),
     }
 }
@@ -451,5 +455,24 @@ mod tokenizer_test {
             proc test(a: float, b: float) -> bool { a + b }
             "##,
         );
+    }
+
+    #[test]
+    fn test_tokenize_player_reference() {
+        test_tokenize_1(
+            vec![
+                Token::Newline,
+                Token::Keyword(Box::new(Keyword::Player)),
+                Token::Delim(Box::new(Delimiter::Dot)),
+                Token::Ident("x".to_string()),
+                Token::Assign,
+                Token::Float(Float(42.0)),
+                Token::Newline,
+                Token::Eof,
+            ],
+            r##"
+            player.x = 42
+            "##,
+        )
     }
 }

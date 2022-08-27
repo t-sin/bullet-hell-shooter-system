@@ -12,6 +12,7 @@ pub enum Keyword {
     Else,
     Let,
     Global,
+    Player,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,6 +24,7 @@ pub enum Delimiter {
     Colon,      // ':'
     Camma,      // ','
     Arrow,      // '->'
+    Dot,        // '.'
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

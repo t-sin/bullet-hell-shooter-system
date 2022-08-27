@@ -1,3 +1,5 @@
+use crate::bullet::{BulletId, StateId};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Type {
     Float,
@@ -66,8 +68,9 @@ pub enum Op2 {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Symbol {
-    Var(Name),   // foo
-    State(Name), // $pos_x
+    Var(Name),                    // foo
+    State(Name),                  // $pos_x
+    BulletRef(BulletId, StateId), // player.x
 }
 
 #[derive(Debug, Clone, PartialEq)]
