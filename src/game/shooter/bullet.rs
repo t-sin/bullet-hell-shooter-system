@@ -16,11 +16,10 @@ use ggez::{
 use glam;
 
 use lang_component::{
-    bullet::{BulletColor, BulletType},
+    bullet::{BulletColor, BulletType, State},
     syntax::Type,
     vm::Data,
 };
-use lang_vm::bullet::State;
 
 use super::SceneDrawable;
 use crate::constant;

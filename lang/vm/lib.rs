@@ -1,4 +1,3 @@
-pub mod bullet;
 pub mod error;
 mod r#macro;
 pub mod run;
@@ -36,5 +35,9 @@ impl VM {
 
     pub fn set_memory(&mut self, memory: Vec<u8>) {
         self.memory = memory;
+    }
+
+    pub fn push_data(&mut self, d: Data) {
+        self.stack.push(d);
     }
 }

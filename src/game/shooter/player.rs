@@ -4,10 +4,10 @@ use ggez::{graphics, Context, GameError, GameResult};
 
 use lang_compiler::BulletCode;
 use lang_component::{
-    bullet::{BulletColor, BulletType},
+    bullet::{BulletColor, BulletId, BulletType, Reference, StateId},
     vm::{Data, OperationQuery},
 };
-use lang_vm::VM;
+use lang_vm::{SuspendingReason, VM};
 
 use super::{bullet::BulletState, bullet_codes::BulletCodes, SceneDrawable};
 
@@ -30,8 +30,17 @@ impl Player {
     }
 
     pub fn update(&mut self, op_queue: &mut VecDeque<OperationQuery>) -> GameResult<()> {
-        if let Err(err) = self.vm.run(0, &mut self.state, op_queue) {
-            return Err(GameError::CustomError(format!("error = {:?}", err)));
+        let reason = self.vm.start(0, &mut self.state, op_queue);
+
+        loop {
+            match reason {
+                Ok(SuspendingReason::Terminated) => break,
+                Ok(SuspendingReason::Running) => unreachable!(),
+                Ok(SuspendingReason::ToReferenceABullet(_, _)) => todo!(),
+                Err(err) => return Err(GameError::CustomError(format!("error = {:?}", err))),
+            }
+
+            // reason = self.vm.resume(0, &mut self.state, op_queue);
         }
 
         Ok(())
@@ -43,6 +52,19 @@ impl Player {
         }
 
         Ok(())
+    }
+}
+
+impl Reference for Player {
+    fn refer(&self, bid: &BulletId, sid: &StateId) -> Data {
+        if !matches!(bid, BulletId::Player) {
+            panic!("I'm not a {:?}", bid);
+        }
+
+        match sid {
+            StateId::PosX => Data::Float(self.state.pos.x),
+            StateId::PosY => Data::Float(self.state.pos.y),
+        }
     }
 }
 

@@ -86,7 +86,7 @@ impl OperationProcessor for Shooter {
 impl Shooter {
     pub fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
         self.player.update(&mut self.op_queue)?;
-        self.bullets.update(&mut self.op_queue)?;
+        self.bullets.update(&self.player, &mut self.op_queue)?;
 
         loop {
             if let Some(op) = self.op_queue.pop_back() {

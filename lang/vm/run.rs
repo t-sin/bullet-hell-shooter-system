@@ -1,20 +1,21 @@
 use std::collections::VecDeque;
 
 use lang_component::{
-    bullet::{BulletColor, BulletType},
+    bullet::{BulletColor, BulletId, BulletType, State, StateId},
     syntax::Type,
     vm::{Data, ExternalOperation, Inst, OperationQuery},
 };
 
-use crate::{bullet::State, error::RuntimeError, r#macro::*, VM};
+use crate::{error::RuntimeError, r#macro::*, VM};
 
 pub enum SuspendingReason {
     Terminated,
     Running,
+    ToReferenceABullet(BulletId, StateId),
 }
 
 impl VM {
-    pub fn run(
+    pub fn start(
         &mut self,
         id: usize,
         state: &mut dyn State,
@@ -23,19 +24,26 @@ impl VM {
         //self.stack.clear();
         self.pc = 0;
 
+        self.resume(id, state, op_queue)
+    }
+
+    pub fn resume(
+        &mut self,
+        id: usize,
+        state: &mut dyn State,
+        op_queue: &mut VecDeque<OperationQuery>,
+    ) -> Result<SuspendingReason, RuntimeError> {
         loop {
             match self.run1(id, state, op_queue) {
                 Ok(reason) => match reason {
-                    SuspendingReason::Terminated => break,
                     SuspendingReason::Running => continue,
+                    _ => return Ok(reason),
                 },
                 Err(err) => {
                     return Err(err);
                 }
             }
         }
-
-        Ok(SuspendingReason::Terminated)
     }
 
     fn run1(
@@ -151,6 +159,9 @@ impl VM {
                         Err(None) => Err(RuntimeError::UnknownState(*id)),
                         _ => Ok(SuspendingReason::Running),
                     }
+                }
+                Inst::Ref(bullet, state) => {
+                    Ok(SuspendingReason::ToReferenceABullet(*bullet, *state))
                 }
                 Inst::Add | Inst::Sub | Inst::Mul | Inst::Div | Inst::Mod => {
                     let b = stack_pop!(self.stack);

@@ -1,15 +1,15 @@
 use std::{cell::RefCell, collections::VecDeque, ops::DerefMut, rc::Rc};
 
-use ggez::{graphics, timer, Context, GameError, GameResult};
+use ggez::{graphics, Context, GameError, GameResult};
 
 use lang_compiler::BulletCode;
 use lang_component::{
-    bullet::{BulletColor, BulletType},
+    bullet::{BulletColor, BulletId, BulletType, Reference},
     vm::{Data, Inst, OperationQuery},
 };
 use lang_vm::{SuspendingReason, VM};
 
-use super::{bullet::BulletState, shooter::OperationProcessor, SceneDrawable};
+use super::{bullet::BulletState, player::Player, shooter::OperationProcessor, SceneDrawable};
 
 pub struct BulletPool {
     pub states: Vec<Rc<RefCell<BulletState>>>,
@@ -50,17 +50,37 @@ impl BulletPool {
         }
     }
 
-    pub fn update(&mut self, op_queue: &mut VecDeque<OperationQuery>) -> GameResult<()> {
+    pub fn update(
+        &mut self,
+        player: &Player,
+        op_queue: &mut VecDeque<OperationQuery>,
+    ) -> GameResult<()> {
         for idx in 0..Self::BULLET_MAX {
             let mut state = self.states[idx].borrow_mut();
             let state = state.deref_mut();
             let vm = &mut self.vms[idx];
 
             if state.enabled {
-                match vm.run(idx, state, op_queue) {
-                    Ok(SuspendingReason::Terminated) => (),
-                    Ok(SuspendingReason::Running) => unreachable!(),
-                    Err(err) => return Err(GameError::CustomError(format!("error = {:?}", err))),
+                let mut reason = vm.start(idx, state, op_queue);
+
+                loop {
+                    match reason {
+                        Ok(SuspendingReason::Terminated) => break,
+                        Ok(SuspendingReason::Running) => unreachable!(),
+                        Ok(SuspendingReason::ToReferenceABullet(bullet, state)) => {
+                            let d = match bullet {
+                                BulletId::Player => player.refer(&bullet, &state),
+                                _ => todo!("bullet {:?} is not implemented yet", bullet),
+                            };
+
+                            vm.push_data(d);
+                        }
+                        Err(err) => {
+                            return Err(GameError::CustomError(format!("error = {:?}", err)))
+                        }
+                    }
+
+                    reason = vm.resume(idx, state, op_queue);
                 }
             }
         }

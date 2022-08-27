@@ -1,5 +1,5 @@
 use crate::{
-    bullet::{BulletColor, BulletType},
+    bullet::{BulletColor, BulletId, BulletType, StateId},
     syntax::Type,
 };
 
@@ -47,6 +47,7 @@ pub enum Inst {
     // state accessors
     Get(usize),
     Set(usize),
+    Ref(BulletId, StateId),
     // arithmetics
     Add,
     Sub,
