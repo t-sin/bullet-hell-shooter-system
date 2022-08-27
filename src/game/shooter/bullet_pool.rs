@@ -7,7 +7,7 @@ use lang_component::{
     bullet::{BulletColor, BulletType},
     vm::{Data, Inst, OperationQuery},
 };
-use lang_vm::VM;
+use lang_vm::{SuspendingReason, VM};
 
 use super::{bullet::BulletState, shooter::OperationProcessor, SceneDrawable};
 
@@ -57,8 +57,10 @@ impl BulletPool {
             let vm = &mut self.vms[idx];
 
             if state.enabled {
-                if let Err(err) = vm.run(idx, state, op_queue) {
-                    return Err(GameError::CustomError(format!("error = {:?}", err)));
+                match vm.run(idx, state, op_queue) {
+                    Ok(SuspendingReason::Terminated) => (),
+                    Ok(SuspendingReason::Running) => unreachable!(),
+                    Err(err) => return Err(GameError::CustomError(format!("error = {:?}", err))),
                 }
             }
         }

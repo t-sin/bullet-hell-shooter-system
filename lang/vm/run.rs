@@ -8,7 +8,10 @@ use lang_component::{
 
 use crate::{bullet::State, error::RuntimeError, r#macro::*, VM};
 
-pub struct Terminated(pub bool);
+pub enum SuspendingReason {
+    Terminated,
+    Running,
+}
 
 impl VM {
     pub fn run(
@@ -16,26 +19,23 @@ impl VM {
         id: usize,
         state: &mut dyn State,
         op_queue: &mut VecDeque<OperationQuery>,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<SuspendingReason, RuntimeError> {
         //self.stack.clear();
         self.pc = 0;
 
         loop {
             match self.run1(id, state, op_queue) {
-                Ok(terminated) => {
-                    if terminated.0 {
-                        break;
-                    } else {
-                        continue;
-                    }
-                }
+                Ok(reason) => match reason {
+                    SuspendingReason::Terminated => break,
+                    SuspendingReason::Running => continue,
+                },
                 Err(err) => {
                     return Err(err);
                 }
             }
         }
 
-        Ok(())
+        Ok(SuspendingReason::Terminated)
     }
 
     fn run1(
@@ -43,14 +43,14 @@ impl VM {
         id: usize,
         state: &mut dyn State,
         op_queue: &mut VecDeque<OperationQuery>,
-    ) -> Result<Terminated, RuntimeError> {
+    ) -> Result<SuspendingReason, RuntimeError> {
         let pc = self.pc;
         let inst = self.code.get(pc);
         self.pc += 1;
 
         match inst {
             Some(inst) => match inst {
-                Inst::Term => Ok(Terminated(true)),
+                Inst::Term => Ok(SuspendingReason::Terminated),
                 Inst::Operate(op) => match op {
                     ExternalOperation::Fire(id) => {
                         let y = stack_pop!(self.stack);
@@ -69,13 +69,13 @@ impl VM {
                         );
                         op_queue.push_front(query);
 
-                        Ok(Terminated(false))
+                        Ok(SuspendingReason::Running)
                     }
                     ExternalOperation::Die => {
                         let query = OperationQuery::Die(id);
                         op_queue.push_front(query);
 
-                        Ok(Terminated(false))
+                        Ok(SuspendingReason::Running)
                     }
                 },
                 Inst::Read(offset, r#type) => {
@@ -99,7 +99,7 @@ impl VM {
                         Type::String => todo!("storing strings in memory is not implemented"),
                     }
 
-                    Ok(Terminated(false))
+                    Ok(SuspendingReason::Running)
                 }
                 Inst::Write(offset) => {
                     let data = stack_pop!(self.stack);
@@ -122,15 +122,15 @@ impl VM {
                         Data::String(_) => todo!("storing strings in memory is not implemented"),
                     };
 
-                    Ok(Terminated(false))
+                    Ok(SuspendingReason::Running)
                 }
                 Inst::Float(f) => {
                     self.stack.push(Data::Float(*f));
-                    Ok(Terminated(false))
+                    Ok(SuspendingReason::Running)
                 }
                 Inst::Bool(b) => {
                     self.stack.push(Data::Bool(*b));
-                    Ok(Terminated(false))
+                    Ok(SuspendingReason::Running)
                 }
                 Inst::Get(id) => {
                     if let Some(d) = state.get(*id) {
@@ -139,7 +139,7 @@ impl VM {
                         return Err(RuntimeError::UnknownState(*id));
                     }
 
-                    Ok(Terminated(false))
+                    Ok(SuspendingReason::Running)
                 }
                 Inst::Set(id) => {
                     let d = stack_pop!(self.stack);
@@ -149,7 +149,7 @@ impl VM {
                             Err(RuntimeError::TypeMismatched(d, expected_type))
                         }
                         Err(None) => Err(RuntimeError::UnknownState(*id)),
-                        _ => Ok(Terminated(false)),
+                        _ => Ok(SuspendingReason::Running),
                     }
                 }
                 Inst::Add | Inst::Sub | Inst::Mul | Inst::Div | Inst::Mod => {
@@ -168,7 +168,7 @@ impl VM {
                         _ => unreachable!(),
                     }));
 
-                    Ok(Terminated(false))
+                    Ok(SuspendingReason::Running)
                 }
                 Inst::EqInt => {
                     let b = stack_pop!(self.stack);
@@ -184,7 +184,7 @@ impl VM {
                         self.stack.push(Data::Bool(false));
                     }
 
-                    Ok(Terminated(false))
+                    Ok(SuspendingReason::Running)
                 }
                 Inst::Gt | Inst::Lt | Inst::Gte | Inst::Lte | Inst::EqFloat => {
                     let b = stack_pop!(self.stack);
@@ -209,7 +209,7 @@ impl VM {
                         self.stack.push(Data::Bool(false));
                     }
 
-                    Ok(Terminated(false))
+                    Ok(SuspendingReason::Running)
                 }
                 Inst::LogOr | Inst::LogAnd => {
                     let b = stack_pop!(self.stack);
@@ -231,7 +231,7 @@ impl VM {
                         self.stack.push(Data::Bool(false));
                     }
 
-                    Ok(Terminated(false))
+                    Ok(SuspendingReason::Running)
                 }
                 Inst::Not => {
                     let b = stack_pop!(self.stack);
@@ -239,17 +239,17 @@ impl VM {
                     let b = bool_data!(b);
 
                     self.stack.push(Data::Bool(!b));
-                    Ok(Terminated(false))
+                    Ok(SuspendingReason::Running)
                 }
                 Inst::Dup => {
                     let x = stack_pop!(self.stack);
                     self.stack.push(x.clone());
                     self.stack.push(x);
-                    Ok(Terminated(false))
+                    Ok(SuspendingReason::Running)
                 }
                 Inst::Drop => {
                     let _ = self.stack.pop();
-                    Ok(Terminated(false))
+                    Ok(SuspendingReason::Running)
                 }
                 Inst::Index => {
                     let n = stack_pop!(self.stack);
@@ -264,7 +264,7 @@ impl VM {
                     let data = self.stack.iter().nth(idx).unwrap();
                     self.stack.push(data.clone());
 
-                    Ok(Terminated(false))
+                    Ok(SuspendingReason::Running)
                 }
                 Inst::Jump(offset) => {
                     let next_pc = offset - 1;
@@ -273,7 +273,7 @@ impl VM {
                     }
 
                     self.pc += next_pc as usize;
-                    Ok(Terminated(false))
+                    Ok(SuspendingReason::Running)
                 }
                 Inst::JumpIfFalse(offset) => {
                     let b = stack_pop!(self.stack);
@@ -288,7 +288,7 @@ impl VM {
 
                         self.pc += next_pc as usize;
                     }
-                    Ok(Terminated(false))
+                    Ok(SuspendingReason::Running)
                 }
                 Inst::Call => {
                     let f = stack_pop!(self.stack);
@@ -303,7 +303,7 @@ impl VM {
                     self.rstack.push(self.pc);
 
                     self.pc = offset as usize;
-                    Ok(Terminated(false))
+                    Ok(SuspendingReason::Running)
                 }
                 Inst::Ret(num) => {
                     if let Some(ret) = self.rstack.pop() {
@@ -312,7 +312,7 @@ impl VM {
                         }
                         self.pc = ret;
 
-                        Ok(Terminated(false))
+                        Ok(SuspendingReason::Running)
                     } else {
                         Err(RuntimeError::ReturnStackUnderflow)
                     }
