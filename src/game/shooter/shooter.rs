@@ -8,11 +8,11 @@ use lang_component::{
     vm::{Data, OperationQuery},
 };
 
-use super::{bullet::Bullet, bullet_codes::BulletCodes, bullet_pool::BulletPool, SceneDrawable};
+use super::{bullet::Bullet, bullet_codes::BulletCodes, bullet_pool::BulletSet, SceneDrawable};
 
 pub struct Objects {
     pub player: Rc<RefCell<Bullet>>,
-    pub bullets: BulletPool,
+    pub bullets: BulletSet,
 }
 
 impl Objects {
@@ -29,7 +29,7 @@ impl Objects {
 
         Self {
             player,
-            bullets: BulletPool::new(),
+            bullets: BulletSet::new(),
         }
     }
 }

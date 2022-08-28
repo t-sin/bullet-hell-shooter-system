@@ -11,14 +11,14 @@ use lang_vm::SuspendingReason;
 
 use super::{bullet::Bullet, shooter::OperationProcessor, SceneDrawable};
 
-pub struct BulletPool {
+pub struct BulletSet {
     pub states: Vec<Rc<RefCell<Bullet>>>,
     pub nexts: Vec<Option<usize>>,
     pub first_disabled: Option<usize>,
     enabled_count: usize,
 }
 
-impl BulletPool {
+impl BulletSet {
     pub const BULLET_MAX: usize = 4000;
     const EMPTY_BULLET_CODE: [Inst; 1] = [Inst::Term];
 
@@ -124,7 +124,7 @@ object num: {}
     }
 }
 
-impl OperationProcessor for BulletPool {
+impl OperationProcessor for BulletSet {
     fn fire(
         &mut self,
         x: f32,
