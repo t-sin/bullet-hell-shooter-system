@@ -10,7 +10,7 @@ const CODE_MAP: [(&str, &str); 2] = [
         r##"
 
         proc die_out_of_screen() {
-          if $x < -10 || 610 < $x || $y < -10 || 850 < $y {
+          if self.x < -10 || 610 < self.x || self.y < -10 || 850 < self.y {
             die()
           } else {
             false
@@ -23,10 +23,10 @@ const CODE_MAP: [(&str, &str); 2] = [
         proc main() {
           die_out_of_screen()
 
-          vx = if vx == 0 { (player.x - $x) / 10 } else { vx }
-          vy = if vy == 0 { (player.y - $y) / 10 } else { vy }
-          $x = $x + vx
-          $y = $y + vy
+          vx = if vx == 0 { (player.x - self.x) / 10 } else { vx }
+          vy = if vy == 0 { (player.y - self.y) / 10 } else { vy }
+          $x = self.x + vx
+          $y = self.y + vy
         }
         "##,
     ),
@@ -41,15 +41,15 @@ const CODE_MAP: [(&str, &str); 2] = [
         }
 
         proc main() {
-          $x = $x - if player.input_left { velocity() } else { 0.0 }
-          $x = $x + if player.input_right { velocity() } else { 0.0 }
-          $y = $y - if player.input_up { velocity() } else { 0.0 }
-          $y = $y + if player.input_down { velocity() } else { 0.0 }
+          $x = self.x - if player.input_left { velocity() } else { 0.0 }
+          $x = self.x + if player.input_right { velocity() } else { 0.0 }
+          $y = self.y - if player.input_up { velocity() } else { 0.0 }
+          $y = self.y + if player.input_down { velocity() } else { 0.0 }
 
           fire("bullet1", 200, 100)
         }
         "##,
-        //              if $input_shot { fire($x, $y) } else { false }
+        //              if self.input_shot { fire(self.x, self.y) } else { false }
     ),
 ];
 

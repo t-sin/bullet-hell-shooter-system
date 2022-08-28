@@ -1,4 +1,4 @@
-use crate::{syntax::Type, vm::Data};
+use crate::{syntax::Type, token::Keyword, vm::Data};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BulletType {
@@ -13,9 +13,22 @@ pub enum BulletColor {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BulletId {
+    Itself,
     Player,
     Enemy(usize),
     Bullet(usize),
+}
+
+impl TryFrom<Keyword> for BulletId {
+    type Error = ();
+
+    fn try_from(kw: Keyword) -> Result<Self, Self::Error> {
+        match kw {
+            Keyword::SelfKw => Ok(BulletId::Itself),
+            Keyword::Player => Ok(BulletId::Player),
+            _ => Err(()),
+        }
+    }
 }
 
 pub trait Reference {

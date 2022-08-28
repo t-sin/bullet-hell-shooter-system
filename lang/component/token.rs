@@ -13,6 +13,22 @@ pub enum Keyword {
     Let,
     Global,
     Player,
+    SelfKw,
+}
+
+impl From<Keyword> for String {
+    fn from(kw: Keyword) -> String {
+        match kw {
+            Keyword::Proc => "proc".to_string(),
+            Keyword::Return => "return".to_string(),
+            Keyword::If => "if".to_string(),
+            Keyword::Else => "else".to_string(),
+            Keyword::Let => "let".to_string(),
+            Keyword::Global => "global".to_string(),
+            Keyword::Player => "player".to_string(),
+            Keyword::SelfKw => "self".to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

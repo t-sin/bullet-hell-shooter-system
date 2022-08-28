@@ -92,6 +92,7 @@ fn tokenize_keyword(s: &str) -> IResult<&str, Token> {
             tag("let"),
             tag("global"),
             tag("player"),
+            tag("self"),
         )),
         alt((space1, peek(tokenize_delimiter_str))),
     ))(s)?
@@ -103,6 +104,7 @@ fn tokenize_keyword(s: &str) -> IResult<&str, Token> {
         (s, ("let", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Let)))),
         (s, ("global", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Global)))),
         (s, ("player", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Player)))),
+        (s, ("self", _)) => Ok((s, Token::Keyword(Box::new(Keyword::SelfKw)))),
         (s, _) => Err(Err::Error(Error::new(s, ErrorKind::Char))),
     }
 }
@@ -466,12 +468,16 @@ mod tokenizer_test {
                 Token::Delim(Box::new(Delimiter::Dot)),
                 Token::Ident("x".to_string()),
                 Token::Assign,
+                Token::Keyword(Box::new(Keyword::SelfKw)),
+                Token::Delim(Box::new(Delimiter::Dot)),
+                Token::Ident("x".to_string()),
+                Token::Op(Box::new(BinOp::Plus)),
                 Token::Float(Float(42.0)),
                 Token::Newline,
                 Token::Eof,
             ],
             r##"
-            player.x = 42
+            player.x = self.x + 42
             "##,
         )
     }

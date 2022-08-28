@@ -16,7 +16,7 @@ use ggez::{
 use glam;
 
 use lang_component::{
-    bullet::{BulletColor, BulletType, State},
+    bullet::{BulletColor, BulletId, BulletType, Reference, State, StateId},
     syntax::Type,
     vm::Data,
 };
@@ -164,6 +164,26 @@ impl State for BulletState {
             }
         } else {
             Err(None)
+        }
+    }
+}
+
+impl Reference for BulletState {
+    fn refer(&self, bid: &BulletId, sid: &StateId) -> Data {
+        if !matches!(bid, BulletId::Player | BulletId::Itself) {
+            panic!("I'm not a {:?}", bid);
+        }
+
+        match sid {
+            StateId::PosX => Data::Float(self.pos.x),
+            StateId::PosY => Data::Float(self.pos.y),
+            StateId::InputUp => Data::Bool(self.input.up),
+            StateId::InputDown => Data::Bool(self.input.down),
+            StateId::InputLeft => Data::Bool(self.input.left),
+            StateId::InputRight => Data::Bool(self.input.right),
+            StateId::InputShot => Data::Bool(self.input.shot),
+            StateId::InputSlow => Data::Bool(self.input.slow),
+            StateId::Enabled => Data::Bool(self.enabled),
         }
     }
 }

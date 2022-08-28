@@ -59,7 +59,7 @@ impl Player {
 
 impl Reference for Player {
     fn refer(&self, bid: &BulletId, sid: &StateId) -> Data {
-        if !matches!(bid, BulletId::Player) {
+        if !matches!(bid, BulletId::Player | BulletId::Itself) {
             panic!("I'm not a {:?}", bid);
         }
 

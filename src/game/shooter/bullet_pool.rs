@@ -67,10 +67,11 @@ impl BulletPool {
                     match reason {
                         Ok(SuspendingReason::Terminated) => break,
                         Ok(SuspendingReason::Running) => unreachable!(),
-                        Ok(SuspendingReason::ToReferenceABullet(bullet, state)) => {
-                            let d = match bullet {
-                                BulletId::Player => player.refer(&bullet, &state),
-                                _ => todo!("bullet {:?} is not implemented yet", bullet),
+                        Ok(SuspendingReason::ToReferenceABullet(bid, sid)) => {
+                            let d = match bid {
+                                BulletId::Player => player.refer(&bid, &sid),
+                                BulletId::Itself => state.refer(&bid, &sid),
+                                _ => todo!("bullet {:?} is not implemented yet", bid),
                             };
 
                             vm.push_data(d);

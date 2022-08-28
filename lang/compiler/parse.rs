@@ -143,6 +143,66 @@ fn make_symbol(name: &str) -> Option<Symbol> {
     }
 }
 
+fn parse_bullet_ref_tokens<'a>(t: Input<'a>) -> IResult<Input<'a>, &Token, ParseError<Input<'a>>> {
+    alt((
+        token(Token::Keyword(Box::new(Keyword::Player))),
+        token(Token::Keyword(Box::new(Keyword::SelfKw))),
+    ))(t)
+}
+
+fn parse_bullet_ref<'a>(t: Input<'a>) -> IResult<Input<'a>, Symbol, ParseError<Input<'a>>> {
+    match tuple((
+        parse_bullet_ref_tokens,
+        token(Token::Delim(Box::new(Delimiter::Dot))),
+        token_type(Token::Ident("".to_string())),
+    ))(t)
+    {
+        Ok((t, (Token::Keyword(kw), _, Token::Ident(state)))) => {
+            let bullet = match BulletId::try_from(*kw.clone()) {
+                Ok(bullet) => bullet,
+                _ => {
+                    return Err(Err::Error(ParseError::new(
+                        t,
+                        ErrorKind::UnknownBulletId(String::from(*kw.clone())),
+                        None,
+                    )))
+                }
+            };
+            let state = match StateId::try_from(&state[..]) {
+                Ok(state) => state,
+                _ => {
+                    return Err(Err::Error(ParseError::new(
+                        t,
+                        ErrorKind::UnknownStateId(state.to_string()),
+                        None,
+                    )))
+                }
+            };
+
+            Ok((t, Symbol::Ref(bullet, state)))
+        }
+        Ok((_, _)) => unreachable!(),
+        Err(err) => Err(err),
+    }
+}
+
+fn parse_name<'a>(t: Input<'a>) -> IResult<Input<'a>, Symbol, ParseError<Input<'a>>> {
+    match parse_bullet_ref(t) {
+        Ok((t, sym)) => Ok((t, sym)),
+        Err(_) => match token_type(Token::Ident("".to_string()))(t) {
+            Ok((t, Token::Ident(name))) => {
+                if let Some(sym) = make_symbol(name) {
+                    Ok((t, sym))
+                } else {
+                    Err(Err::Error(ParseError::new(t, ErrorKind::EmptyName, None)))
+                }
+            }
+            Ok((_, _)) => unreachable!(),
+            Err(err) => Err(err),
+        },
+    }
+}
+
 fn parse_body_block_return<'a>(t: Input<'a>) -> IResult<Input<'a>, Body, ParseError<Input<'a>>> {
     match tuple((
         token(Token::Keyword(Box::new(Keyword::Return))),
@@ -197,7 +257,7 @@ fn parse_body_block_assignment<'a>(
     t: Input<'a>,
 ) -> IResult<Input<'a>, Body, ParseError<Input<'a>>> {
     match tuple((
-        token_type(Token::Ident("".to_string())),
+        parse_name,
         token(Token::Assign),
         parse_expr,
         alt((
@@ -206,18 +266,7 @@ fn parse_body_block_assignment<'a>(
         )),
     ))(t)
     {
-        Ok((t, (Token::Ident(target_name), _, expr, _))) => {
-            if let Some(name) = make_symbol(target_name) {
-                Ok((t, Body::Assignment(name, expr)))
-            } else {
-                Err(Err::Error(ParseError::new(t, ErrorKind::EmptyName, None)))
-            }
-        }
-        Ok((t, (_, _, _, _))) => Err(Err::Error(ParseError::new(
-            t,
-            ErrorKind::InvalidLexicalDefine,
-            None,
-        ))),
+        Ok((t, (sym, _, expr, _))) => Ok((t, Body::Assignment(sym, expr))),
         Err(Err::Error(err)) => Err(Err::Error(ParseError::new(
             t,
             ErrorKind::InvalidLexicalDefine,
@@ -306,34 +355,6 @@ fn parse_expr_proc_call<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError
     }
 }
 
-fn parse_expr_bullet_ref<'a>(t: Input<'a>) -> IResult<Input<'a>, Symbol, ParseError<Input<'a>>> {
-    match tuple((
-        token_type(Token::Keyword(Box::new(Keyword::Player))),
-        token(Token::Delim(Box::new(Delimiter::Dot))),
-        token_type(Token::Ident("".to_string())),
-    ))(t)
-    {
-        Ok((t, (_, _, Token::Ident(state)))) => {
-            let bullet = BulletId::Player;
-
-            let state = match StateId::try_from(&state[..]) {
-                Ok(state) => state,
-                _ => {
-                    return Err(Err::Error(ParseError::new(
-                        t,
-                        ErrorKind::UnknownStateId(state.to_string()),
-                        None,
-                    )))
-                }
-            };
-
-            Ok((t, Symbol::Ref(bullet, state)))
-        }
-        Ok((_, _)) => unreachable!(),
-        Err(err) => Err(err),
-    }
-}
-
 fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>>> {
     if let Ok(_) = peek(parse_expr_proc_call)(t) {
         return parse_expr_proc_call(t);
@@ -345,7 +366,7 @@ fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Inpu
         token_type(Token::Float(Float(0.0))),
         token_type(Token::String("".to_string())),
         token_type(Token::Ident("".to_string())),
-        token(Token::Keyword(Box::new(Keyword::Player))),
+        parse_bullet_ref_tokens,
     ))(t)
     {
         Ok((t, Token::True)) => Ok((t, Expr::Bool(true))),
@@ -363,7 +384,7 @@ fn parse_expr_term<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Inpu
                 )))
             }
         }
-        Ok((_, Token::Keyword(_))) => match parse_expr_bullet_ref(t) {
+        Ok((_, Token::Keyword(_))) => match parse_bullet_ref(t) {
             Ok((t, sym)) => Ok((t, Expr::Symbol(sym))),
             Err(err) => Err(err),
         },
@@ -1199,12 +1220,16 @@ mod parser_test {
                 Signature::new(vec![], None),
                 vec![Body::Assignment(
                     Symbol::State(Name("x".to_string())),
-                    Expr::Symbol(Symbol::BulletRef(BulletId::Player, StateId::PosX)),
+                    Expr::Op2(
+                        Op2::Sub,
+                        Box::new(Expr::Symbol(Symbol::Ref(BulletId::Player, StateId::PosX))),
+                        Box::new(Expr::Symbol(Symbol::Ref(BulletId::Itself, StateId::PosX))),
+                    ),
                 )],
             ),
             r##"
             proc main() {
-              $x = player.x
+              $x = player.x - self.x
             }
             "##,
         );
