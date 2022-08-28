@@ -17,13 +17,16 @@ const CODE_MAP: [(&str, &str); 2] = [
           }
         }
 
-        global v = 3
+        global vx = 0
+        global vy = 0
 
         proc main() {
           die_out_of_screen()
 
-          $y = $y - v
-          v = v * 1.14
+          vx = if vx == 0 { (player.x - $x) / 10 } else { vx }
+          vy = if vy == 0 { (player.y - $y) / 10 } else { vy }
+          $x = $x + vx
+          $y = $y + vy
         }
         "##,
     ),
@@ -43,7 +46,7 @@ const CODE_MAP: [(&str, &str); 2] = [
           $y = $y - if $input_up { velocity() } else { 0.0 }
           $y = $y + if $input_down { velocity() } else { 0.0 }
 
-          fire("bullet1", $x, $y)
+          fire("bullet1", 200, 100)
         }
         "##,
         //              if $input_shot { fire($x, $y) } else { false }
