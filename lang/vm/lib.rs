@@ -1,13 +1,13 @@
 pub mod error;
+pub mod interpret;
 mod r#macro;
-pub mod run;
 
 use std::rc::Rc;
 
 use lang_component::vm::{Data, Inst};
 
 pub use error::*;
-pub use run::*;
+pub use interpret::*;
 
 #[derive(Debug)]
 pub struct VM {

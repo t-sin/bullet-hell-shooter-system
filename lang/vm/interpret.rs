@@ -33,7 +33,7 @@ impl VM {
         op_queue: &mut VecDeque<OperationQuery>,
     ) -> Result<SuspendingReason, RuntimeError> {
         loop {
-            match self.run1(id, op_queue) {
+            match self.interpret1(id, op_queue) {
                 Ok(reason) => match reason {
                     SuspendingReason::Running => continue,
                     _ => return Ok(reason),
@@ -45,7 +45,7 @@ impl VM {
         }
     }
 
-    fn run1(
+    fn interpret1(
         &mut self,
         id: usize,
         op_queue: &mut VecDeque<OperationQuery>,
