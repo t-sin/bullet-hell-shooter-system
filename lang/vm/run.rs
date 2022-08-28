@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use lang_component::{
-    bullet::{BulletColor, BulletId, BulletType, State, StateId},
+    bullet::{BulletColor, BulletId, BulletType, StateId},
     syntax::Type,
     vm::{Data, ExternalOperation, Inst, OperationQuery},
 };
@@ -19,23 +19,21 @@ impl VM {
     pub fn start(
         &mut self,
         id: usize,
-        state: &mut dyn State,
         op_queue: &mut VecDeque<OperationQuery>,
     ) -> Result<SuspendingReason, RuntimeError> {
         //self.stack.clear();
         self.pc = 0;
 
-        self.resume(id, state, op_queue)
+        self.resume(id, op_queue)
     }
 
     pub fn resume(
         &mut self,
         id: usize,
-        state: &mut dyn State,
         op_queue: &mut VecDeque<OperationQuery>,
     ) -> Result<SuspendingReason, RuntimeError> {
         loop {
-            match self.run1(id, state, op_queue) {
+            match self.run1(id, op_queue) {
                 Ok(reason) => match reason {
                     SuspendingReason::Running => continue,
                     _ => return Ok(reason),
@@ -50,7 +48,6 @@ impl VM {
     fn run1(
         &mut self,
         id: usize,
-        state: &mut dyn State,
         op_queue: &mut VecDeque<OperationQuery>,
     ) -> Result<SuspendingReason, RuntimeError> {
         let pc = self.pc;
@@ -140,26 +137,6 @@ impl VM {
                 Inst::Bool(b) => {
                     self.stack.push(Data::Bool(*b));
                     Ok(SuspendingReason::Running)
-                }
-                Inst::Get(id) => {
-                    if let Some(d) = state.get(*id) {
-                        self.stack.push(d);
-                    } else {
-                        return Err(RuntimeError::UnknownState(*id));
-                    }
-
-                    Ok(SuspendingReason::Running)
-                }
-                Inst::Set(id) => {
-                    let d = stack_pop!(self.stack);
-
-                    match state.set(*id, d.clone()) {
-                        Err(Some(expected_type)) => {
-                            Err(RuntimeError::TypeMismatched(d, expected_type))
-                        }
-                        Err(None) => Err(RuntimeError::UnknownState(*id)),
-                        _ => Ok(SuspendingReason::Running),
-                    }
                 }
                 Inst::RefRead(bid, sid) => Ok(SuspendingReason::ToReadState(*bid, *sid)),
                 Inst::RefWrite(bid, sid) => {

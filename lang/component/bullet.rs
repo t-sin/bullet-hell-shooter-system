@@ -1,4 +1,4 @@
-use crate::{syntax::Type, token::Keyword, vm::Data};
+use crate::{token::Keyword, vm::Data};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BulletType {
@@ -34,11 +34,6 @@ impl TryFrom<Keyword> for BulletId {
 pub trait StateIO {
     fn read(&self, bid: &BulletId, sid: &StateId) -> Data;
     fn write(&mut self, bid: &BulletId, sid: &StateId, d: Data);
-}
-
-pub trait State {
-    fn get(&self, id: usize) -> Option<Data>;
-    fn set(&mut self, id: usize, d: Data) -> Result<(), Option<Type>>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

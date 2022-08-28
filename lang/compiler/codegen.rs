@@ -1,19 +1,18 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use lang_component::{
-    bullet::{BulletId, StateId},
+    bullet::StateId,
     syntax::{Body, Expr, Name, Op2, Signature, Symbol, SyntaxTree, Type},
     vm::{ExternalOperation, Inst},
 };
 
-use crate::{BulletCode, ObjectStates};
+use crate::BulletCode;
 
 type VarInfo = (Type, String);
 
 #[derive(Debug, Clone)]
 enum StackData {
     Var(VarInfo),
-    State(VarInfo),
     Float,
     Bool,
     String,
@@ -32,7 +31,6 @@ impl From<Type> for StackData {
 impl From<Symbol> for StackData {
     fn from(s: Symbol) -> Self {
         match s {
-            Symbol::State(Name(name)) => StackData::State((Type::Float, name.clone())),
             Symbol::Var(Name(name)) => StackData::Var((Type::Float, name.clone())),
             Symbol::Ref(_, state) => match state {
                 StateId::PosX => StackData::Var((Type::Float, "xxx.x".to_string())),
@@ -75,7 +73,6 @@ impl StackInfo {
         //let  len = self.info.len();
         if let Some((idx, sd)) = self.info.iter().enumerate().find(|(_, sd)| match sd {
             StackData::Var((_, n)) => n == &name[..],
-            StackData::State((_, n)) => n == &name[..],
             _ => false,
         }) {
             Some((self.info.len() - 1 - idx, sd.clone()))
@@ -164,7 +161,6 @@ pub struct CodegenState<'a> {
     pub memory: Vec<u8>,
     memory_info: Rc<RefCell<Vec<MemoryInfo>>>,
     current_unresolved: Rc<RefCell<Vec<ResolveInfo>>>,
-    object_state_ids: Rc<ObjectStates>,
     compiled_code_vec: &'a Vec<Rc<BulletCode>>,
 }
 
@@ -172,7 +168,6 @@ impl<'a> CodegenState<'a> {
     fn new(
         proc_map: Rc<RefCell<HashMap<String, Proc>>>,
         memory_info: Rc<RefCell<Vec<MemoryInfo>>>,
-        object_state_ids: Rc<ObjectStates>,
         compiled_code_vec: &'a Vec<Rc<BulletCode>>,
     ) -> Self {
         Self {
@@ -184,7 +179,6 @@ impl<'a> CodegenState<'a> {
             memory: Vec::from([0; 128]),
             memory_info: memory_info,
             current_unresolved: Rc::new(RefCell::new(Vec::new())),
-            object_state_ids,
             compiled_code_vec,
         }
     }
@@ -208,7 +202,7 @@ macro_rules! iter_names_except_main {
 
 macro_rules! emit {
     ($state: expr, $inst:expr) => {
-        $state.code.push($inst);
+        $state.code.push($inst)
     };
 }
 
@@ -328,14 +322,6 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
                 };
                 state.stack.push(sd);
                 emit!(state, Inst::RefRead(*bid, *sid));
-            }
-            Symbol::State(Name(name)) => {
-                if let Some(id) = state.object_state_ids.get_state_id(name) {
-                    emit!(state, Inst::Get(id));
-                    state.stack.push(StackData::Float);
-                } else {
-                    return Err(CodegenError::UnknownVMState(name.to_string()));
-                }
             }
             Symbol::Var(Name(name)) => {
                 if let Some((idx, StackData::Var((_, _)))) = state.stack.get(&name[..]) {
@@ -463,16 +449,6 @@ fn codegen_proc_body(
                     let _ = state.stack.pop();
 
                     emit!(state, Inst::RefWrite(*bid, *sid));
-                }
-                Symbol::State(Name(name)) => {
-                    if let Some(id) = state.object_state_ids.get_state_id(name) {
-                        codegen_expr(expr, state)?;
-                        let _ = state.stack.pop();
-
-                        emit!(state, Inst::Set(id));
-                    } else {
-                        return Err(CodegenError::UnknownVMState(name.to_string()));
-                    }
                 }
                 Symbol::Var(Name(name)) => {
                     codegen_expr(expr, state)?;
@@ -735,13 +711,11 @@ pub struct CodegenResult {
 
 pub fn codegen(
     source: Vec<SyntaxTree>,
-    state_map: ObjectStates,
     compiled_bullet_vec: &Vec<Rc<BulletCode>>,
 ) -> Result<CodegenResult, CodegenError> {
     let proc_map = Rc::new(RefCell::new(HashMap::new()));
     let memory_info = Rc::new(RefCell::new(Vec::new()));
-    let state_map = Rc::new(state_map);
-    let mut state = CodegenState::new(proc_map, memory_info, state_map, compiled_bullet_vec);
+    let mut state = CodegenState::new(proc_map, memory_info, compiled_bullet_vec);
 
     codegen_pass1_generate_proc_code(source, &mut state)?;
     codegen_pass2_place_proc_code(&mut state)?;
@@ -766,17 +740,13 @@ pub fn codegen(
 
 #[cfg(test)]
 mod codegen_test {
+    use lang_component::bullet::BulletId;
+
     use super::super::parse::parse;
     use super::super::tokenize::tokenize;
     use super::*;
 
     fn test_codegen(expected: Vec<Inst>, string: &str) {
-        let mut object_states = HashMap::new();
-        object_states.insert("x".to_string(), 0);
-        object_states.insert("y".to_string(), 1);
-        object_states.insert("input_slow".to_string(), 10);
-        let object_states = ObjectStates(object_states);
-
         let mut compiled_bullet_vec = Vec::new();
         compiled_bullet_vec.push(Rc::new(BulletCode::new("bullet_0")));
         compiled_bullet_vec.push(Rc::new(BulletCode::new("bullet_1")));
@@ -786,7 +756,7 @@ mod codegen_test {
         if let Ok(("", tokens)) = tokenize(string) {
             println!("tokens: {:?}", tokens);
             if let Ok((&[], stvec)) = parse(&tokens) {
-                match codegen(stvec, object_states, &compiled_bullet_vec) {
+                match codegen(stvec, &compiled_bullet_vec) {
                     Ok(CodegenResult { code: actual, .. }) => {
                         println!("actual = {:?}\nexpected = {:?}", actual, expected);
 

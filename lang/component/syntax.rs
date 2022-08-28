@@ -69,7 +69,6 @@ pub enum Op2 {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Symbol {
     Var(Name),              // foo
-    State(Name),            // $pos_x
     Ref(BulletId, StateId), // player.x
 }
 

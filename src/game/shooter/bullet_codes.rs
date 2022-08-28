@@ -2,8 +2,6 @@ use std::{collections::HashMap, rc::Rc};
 
 use lang_compiler::{compile, BulletCode};
 
-use super::bullet::BulletState;
-
 const CODE_MAP: [(&str, &str); 2] = [
     (
         "bullet1",
@@ -65,7 +63,7 @@ impl BulletCodes {
         let mut id = 0;
 
         for (name, codestr) in CODE_MAP.iter() {
-            let result = match compile(codestr.to_string(), BulletState::state_id_map(), &vec) {
+            let result = match compile(codestr.to_string(), &vec) {
                 Ok(result) => result,
                 Err(err) => panic!("compilation '{}' fails: {:?}", name, err),
             };

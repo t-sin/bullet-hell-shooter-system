@@ -2,7 +2,7 @@ mod codegen;
 mod parse;
 mod tokenize;
 
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 
 use nom::{error::ErrorKind, Err};
 
@@ -65,23 +65,13 @@ impl CompileResult {
     }
 }
 
-#[derive(Debug)]
-pub struct ObjectStates(pub HashMap<String, usize>);
-
-impl ObjectStates {
-    pub fn get_state_id(&self, name: &str) -> Option<usize> {
-        self.0.get(name).copied()
-    }
-}
-
 pub fn compile(
     source: String,
-    state_map: HashMap<String, usize>,
     code_vec: &Vec<Rc<BulletCode>>,
 ) -> Result<CompileResult, CompileError> {
     match tokenize(&source[..]) {
         Ok((_, tokens)) => match parse(&tokens[..]) {
-            Ok((_, stvec)) => match codegen(stvec, ObjectStates(state_map), code_vec) {
+            Ok((_, stvec)) => match codegen(stvec, code_vec) {
                 Ok(CodegenResult {
                     code,
                     memory,

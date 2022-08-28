@@ -30,7 +30,7 @@ impl Player {
     }
 
     pub fn update(&mut self, op_queue: &mut VecDeque<OperationQuery>) -> GameResult<()> {
-        let mut reason = self.vm.start(0, &mut self.state, op_queue);
+        let mut reason = self.vm.start(0, op_queue);
 
         loop {
             match reason {
@@ -45,7 +45,7 @@ impl Player {
                 Err(err) => return Err(GameError::CustomError(format!("error = {:?}", err))),
             }
 
-            reason = self.vm.resume(0, &mut self.state, op_queue);
+            reason = self.vm.resume(0, op_queue);
         }
 
         Ok(())

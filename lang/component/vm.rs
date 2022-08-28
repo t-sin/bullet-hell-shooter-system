@@ -45,8 +45,6 @@ pub enum Inst {
     Float(f32),
     Bool(bool),
     // state accessors
-    Get(usize),
-    Set(usize),
     RefRead(BulletId, StateId),
     RefWrite(BulletId, StateId),
     // arithmetics

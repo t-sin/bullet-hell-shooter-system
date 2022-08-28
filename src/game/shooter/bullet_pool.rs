@@ -61,7 +61,7 @@ impl BulletPool {
             let vm = &mut self.vms[idx];
 
             if state.enabled {
-                let mut reason = vm.start(idx, state, op_queue);
+                let mut reason = vm.start(idx, op_queue);
 
                 loop {
                     match reason {
@@ -85,7 +85,7 @@ impl BulletPool {
                         }
                     }
 
-                    reason = vm.resume(idx, state, op_queue);
+                    reason = vm.resume(idx, op_queue);
                 }
             }
         }

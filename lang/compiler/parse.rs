@@ -133,12 +133,7 @@ fn make_symbol(name: &str) -> Option<Symbol> {
     if name.len() == 0 {
         None
     } else {
-        let s = if let Some('$') = name.chars().nth(0) {
-            Symbol::State(Name(name[1..].to_string()))
-        } else {
-            Symbol::Var(Name(name))
-        };
-
+        let s = Symbol::Var(Name(name));
         Some(s)
     }
 }
