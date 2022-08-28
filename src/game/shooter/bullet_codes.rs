@@ -15,14 +15,14 @@ const CODE_MAP: [(&str, &str); 2] = [
           }
         }
 
-        global vx = 0
-        global vy = 0
+        global vx = -1
+        global vy = -1
 
         proc main() {
           die_out_of_screen()
 
-          vx = if vx == 0 { (player.x - self.x) / 10 } else { vx }
-          vy = if vy == 0 { (player.y - self.y) / 10 } else { vy }
+          vx = if vx == -1 { (player.x - self.x) / 10 } else { vx }
+          vy = if vy == -1 { (player.y - self.y) / 10 } else { vy }
           self.x = self.x + vx
           self.y = self.y + vy
         }
