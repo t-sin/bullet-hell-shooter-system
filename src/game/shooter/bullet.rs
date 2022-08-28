@@ -1,3 +1,5 @@
+use std::{collections::VecDeque, rc::Rc};
+
 use ggez::{
     graphics::{
         self,
@@ -9,16 +11,18 @@ use ggez::{
         MeshBuilder,
     },
     mint::Point2,
-    Context, GameResult,
+    Context, GameError, GameResult,
 };
 use glam;
 
+use lang_compiler::BulletCode;
 use lang_component::{
     bullet::{BulletColor, BulletId, BulletType, StateIO, StateId},
-    vm::Data,
+    vm::{Data, OperationQuery},
 };
+use lang_vm::{SuspendingReason, VM};
 
-use super::SceneDrawable;
+use super::{shooter::Objects, SceneDrawable};
 use crate::constant;
 
 pub struct Appearance {
@@ -61,17 +65,60 @@ pub struct BulletState {
     pub input: InputState,
     pub pos: glam::Vec2,
     pub appearance: Appearance,
+    pub vm: VM,
 }
 
 impl BulletState {
-    pub fn new(x: f32, y: f32, atype: BulletType, acolor: BulletColor) -> Self {
+    pub fn new(x: f32, y: f32, atype: BulletType, acolor: BulletColor, bc: Rc<BulletCode>) -> Self {
+        let mut vm = VM::new();
+        vm.set_code(bc.code.clone());
+        vm.set_memory(bc.initial_memory.clone());
+
         Self {
             enabled: false,
             visible: false,
             input: InputState::default(),
             pos: glam::vec2(x, y),
             appearance: Appearance::new(atype, acolor),
+            vm,
         }
+    }
+
+    pub fn update(
+        &mut self,
+        id: BulletId,
+        objects: &Objects,
+        op_queue: &mut VecDeque<OperationQuery>,
+    ) -> GameResult<()> {
+        let mut reason = self.vm.start(0, op_queue);
+
+        loop {
+            match reason {
+                Ok(SuspendingReason::Terminated) => break,
+                Ok(SuspendingReason::Running) => unreachable!(),
+                Ok(SuspendingReason::ToReadState(bid, sid)) => match bid {
+                    BulletId::Itself => self.vm.push_data(self.read(&bid, &sid)),
+                    BulletId::Player => {
+                        let d = if id == BulletId::Player {
+                            self.read(&bid, &sid)
+                        } else {
+                            let p = objects.player.borrow();
+                            p.read(&bid, &sid)
+                        };
+                        self.vm.push_data(d);
+                    }
+                    _ => todo!(),
+                },
+                Ok(SuspendingReason::ToWriteState(bid, sid, d)) => {
+                    self.write(&bid, &sid, d);
+                }
+                Err(err) => return Err(GameError::CustomError(format!("error = {:?}", err))),
+            }
+
+            reason = self.vm.resume(0, op_queue);
+        }
+
+        Ok(())
     }
 }
 

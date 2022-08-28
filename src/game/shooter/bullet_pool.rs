@@ -7,13 +7,12 @@ use lang_component::{
     bullet::{BulletColor, BulletId, BulletType, StateIO},
     vm::{Data, Inst, OperationQuery},
 };
-use lang_vm::{SuspendingReason, VM};
+use lang_vm::SuspendingReason;
 
-use super::{bullet::BulletState, player::Player, shooter::OperationProcessor, SceneDrawable};
+use super::{bullet::BulletState, shooter::OperationProcessor, SceneDrawable};
 
 pub struct BulletPool {
     pub states: Vec<Rc<RefCell<BulletState>>>,
-    pub vms: Vec<VM>,
     pub nexts: Vec<Option<usize>>,
     pub first_disabled: Option<usize>,
     enabled_count: usize,
@@ -26,25 +25,28 @@ impl BulletPool {
     pub fn new() -> Self {
         let mut states = Vec::new();
         let mut nexts = Vec::new();
-        let mut vms = Vec::new();
 
         for n in 0..Self::BULLET_MAX {
-            let state = BulletState::new(0.0, 0.0, BulletType::Bullet1, BulletColor::White);
+            let mut state = BulletState::new(
+                0.0,
+                0.0,
+                BulletType::Bullet1,
+                BulletColor::White,
+                Rc::new(BulletCode::new("")),
+            );
+            state.vm.set_code(Rc::new(Self::EMPTY_BULLET_CODE.to_vec()));
+
             states.push(Rc::new(RefCell::new(state)));
             nexts.push(if n == Self::BULLET_MAX - 1 {
                 None
             } else {
                 Some(n + 1)
             });
-            let mut vm = VM::new();
-            vm.set_code(Rc::new(Self::EMPTY_BULLET_CODE.to_vec()));
-            vms.push(vm);
         }
 
         Self {
             states,
             nexts,
-            vms,
             first_disabled: Some(0),
             enabled_count: 0,
         }
@@ -52,16 +54,15 @@ impl BulletPool {
 
     pub fn update(
         &mut self,
-        player: &Player,
+        player: Rc<RefCell<BulletState>>,
         op_queue: &mut VecDeque<OperationQuery>,
     ) -> GameResult<()> {
         for idx in 0..Self::BULLET_MAX {
             let mut state = self.states[idx].borrow_mut();
             let state = state.deref_mut();
-            let vm = &mut self.vms[idx];
 
             if state.enabled {
-                let mut reason = vm.start(idx, op_queue);
+                let mut reason = state.vm.start(idx, op_queue);
 
                 loop {
                     match reason {
@@ -69,12 +70,15 @@ impl BulletPool {
                         Ok(SuspendingReason::Running) => unreachable!(),
                         Ok(SuspendingReason::ToReadState(bid, sid)) => {
                             let d = match bid {
-                                BulletId::Player => player.read(&bid, &sid),
+                                BulletId::Player => {
+                                    let player = player.borrow();
+                                    player.read(&bid, &sid)
+                                }
                                 BulletId::Itself => state.read(&bid, &sid),
                                 _ => todo!("bullet {:?} is not implemented yet", bid),
                             };
 
-                            vm.push_data(d);
+                            state.vm.push_data(d);
                         }
                         Ok(SuspendingReason::ToWriteState(bid, sid, d)) => match bid {
                             BulletId::Itself => state.write(&bid, &sid, d),
@@ -85,7 +89,7 @@ impl BulletPool {
                         }
                     }
 
-                    reason = vm.resume(idx, op_queue);
+                    reason = state.vm.resume(idx, op_queue);
                 }
             }
         }
@@ -148,7 +152,7 @@ impl OperationProcessor for BulletPool {
         state.appearance.r#type = r#type;
         state.appearance.color = color;
 
-        let vm = &mut self.vms[idx];
+        let vm = &mut state.vm;
         vm.code = bullet_code.code.clone();
         vm.memory
             .as_mut_slice()

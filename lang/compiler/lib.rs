@@ -24,13 +24,12 @@ pub struct BulletCode {
 }
 
 impl BulletCode {
-    #[allow(dead_code)]
-    fn new(name: &str) -> Self {
+    pub fn new(name: &str) -> Self {
         Self {
             id: 0,
             name: name.to_string(),
             code: Rc::new(Vec::new()),
-            initial_memory: Vec::new(),
+            initial_memory: Vec::from([0; 128]),
             signature: Signature::new(Vec::new(), None),
         }
     }

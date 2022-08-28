@@ -1,18 +1,43 @@
-use std::{collections::VecDeque, rc::Rc};
+use std::{cell::RefCell, collections::VecDeque, rc::Rc};
 
 use ggez::{graphics, Context, GameResult};
 
 use lang_compiler::BulletCode;
 use lang_component::{
-    bullet::{BulletColor, BulletType},
+    bullet::{BulletColor, BulletId, BulletType},
     vm::{Data, OperationQuery},
 };
 
-use super::{bullet_codes::BulletCodes, bullet_pool::BulletPool, player::Player};
+use super::{
+    bullet::BulletState, bullet_codes::BulletCodes, bullet_pool::BulletPool, SceneDrawable,
+};
+
+pub struct Objects {
+    pub player: Rc<RefCell<BulletState>>,
+    pub bullets: BulletPool,
+}
+
+impl Objects {
+    fn new(bullet_codes: &BulletCodes) -> Self {
+        let bc = bullet_codes.by_name.get("player").unwrap();
+        let player = BulletState::new(
+            200.0,
+            400.0,
+            BulletType::Player,
+            BulletColor::White,
+            bc.clone(),
+        );
+        let player = Rc::new(RefCell::new(player));
+
+        Self {
+            player,
+            bullets: BulletPool::new(),
+        }
+    }
+}
 
 pub struct Shooter {
-    pub player: Player,
-    pub bullets: BulletPool,
+    objects: Objects,
     bullet_codes: BulletCodes,
     op_queue: VecDeque<OperationQuery>,
 }
@@ -46,21 +71,21 @@ impl Shooter {
         let bullet_codes = BulletCodes::compile_codes();
 
         Self {
-            player: Player::new(&bullet_codes),
-            bullets: BulletPool::new(),
+            objects: Objects::new(&bullet_codes),
             bullet_codes,
             op_queue: VecDeque::new(),
         }
     }
 
     pub fn input(&mut self, input: &Input, b: bool) {
+        let mut player = self.objects.player.borrow_mut();
         match input {
-            Input::Up => self.player.state.input.up = b,
-            Input::Down => self.player.state.input.down = b,
-            Input::Left => self.player.state.input.left = b,
-            Input::Right => self.player.state.input.right = b,
-            Input::Shot => self.player.state.input.shot = b,
-            Input::Slow => self.player.state.input.slow = b,
+            Input::Up => player.input.up = b,
+            Input::Down => player.input.down = b,
+            Input::Left => player.input.left = b,
+            Input::Right => player.input.right = b,
+            Input::Shot => player.input.shot = b,
+            Input::Slow => player.input.slow = b,
         }
     }
 }
@@ -75,18 +100,26 @@ impl OperationProcessor for Shooter {
         params: Vec<Data>,
         bullet_code: Rc<BulletCode>,
     ) -> bool {
-        self.bullets.fire(x, y, r#type, color, params, bullet_code)
+        self.objects
+            .bullets
+            .fire(x, y, r#type, color, params, bullet_code)
     }
 
     fn kill(&mut self, id: usize) {
-        self.bullets.kill(id);
+        self.objects.bullets.kill(id);
     }
 }
 
 impl Shooter {
     pub fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
-        self.player.update(&mut self.op_queue)?;
-        self.bullets.update(&self.player, &mut self.op_queue)?;
+        {
+            let mut player = self.objects.player.borrow_mut();
+            player.update(BulletId::Player, &self.objects, &mut self.op_queue)?;
+        }
+        {
+            let player = self.objects.player.clone();
+            self.objects.bullets.update(player, &mut self.op_queue)?;
+        }
 
         loop {
             if let Some(op) = self.op_queue.pop_back() {
@@ -108,8 +141,11 @@ impl Shooter {
     }
 
     pub fn draw(&mut self, ctx: &mut Context, canvas: &mut graphics::Canvas) -> GameResult<()> {
-        self.player.draw(ctx, canvas)?;
-        self.bullets.draw(ctx, canvas)?;
+        {
+            let player = self.objects.player.borrow();
+            player.draw(ctx, canvas)?;
+        }
+        self.objects.bullets.draw(ctx, canvas)?;
 
         Ok(())
     }
