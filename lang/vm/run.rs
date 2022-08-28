@@ -11,7 +11,8 @@ use crate::{error::RuntimeError, r#macro::*, VM};
 pub enum SuspendingReason {
     Terminated,
     Running,
-    ToReferenceABullet(BulletId, StateId),
+    ToReadState(BulletId, StateId),
+    ToWriteState(BulletId, StateId, Data),
 }
 
 impl VM {
@@ -160,8 +161,10 @@ impl VM {
                         _ => Ok(SuspendingReason::Running),
                     }
                 }
-                Inst::Ref(bullet, state) => {
-                    Ok(SuspendingReason::ToReferenceABullet(*bullet, *state))
+                Inst::RefRead(bid, sid) => Ok(SuspendingReason::ToReadState(*bid, *sid)),
+                Inst::RefWrite(bid, sid) => {
+                    let d = stack_pop!(self.stack);
+                    Ok(SuspendingReason::ToWriteState(*bid, *sid, d))
                 }
                 Inst::Add | Inst::Sub | Inst::Mul | Inst::Div | Inst::Mod => {
                     let b = stack_pop!(self.stack);

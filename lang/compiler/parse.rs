@@ -1031,10 +1031,10 @@ mod parser_test {
                 Signature::new(vec![], None),
                 vec![
                     Body::Assignment(
-                        Symbol::State(Name("x".to_string())),
+                        Symbol::Ref(BulletId::Itself, StateId::PosX),
                         Expr::Op2(
                             Op2::Add,
-                            Box::new(Expr::Symbol(Symbol::State(Name("x".to_string())))),
+                            Box::new(Expr::Symbol(Symbol::Ref(BulletId::Itself, StateId::PosX))),
                             Box::new(Expr::Float(5.0)),
                         ),
                     ),
@@ -1043,7 +1043,7 @@ mod parser_test {
             ),
             r###"
             proc main() {
-              $x = $x + 5.0
+              self.x = self.x + 5.0
               return
             }
             "###,
@@ -1059,25 +1059,31 @@ mod parser_test {
                 vec![Body::LexicalDefine(
                     Symbol::Var(Name("dp".to_string())),
                     Expr::If(
-                        Box::new(Expr::Symbol(Symbol::State(Name("input_slow".to_string())))),
+                        Box::new(Expr::Symbol(Symbol::Ref(
+                            BulletId::Itself,
+                            StateId::InputSlow,
+                        ))),
                         Box::new(Expr::Float(4.0)),
                         Box::new(Expr::Float(7.0)),
                     ),
                 )],
             ),
-            "proc main() { let dp = if $input_slow { 4.0 } else { 7.0 } }",
+            "proc main() { let dp = if self.input_slow { 4.0 } else { 7.0 } }",
         );
         test_parse_1(
             SyntaxTree::DefProc(
                 Name("main".to_string()),
                 Signature::new(vec![], None),
                 vec![Body::Assignment(
-                    Symbol::State(Name("x".to_string())),
+                    Symbol::Ref(BulletId::Itself, StateId::PosX),
                     Expr::Op2(
                         Op2::Add,
-                        Box::new(Expr::Symbol(Symbol::State(Name("x".to_string())))),
+                        Box::new(Expr::Symbol(Symbol::Ref(BulletId::Itself, StateId::PosX))),
                         Box::new(Expr::If(
-                            Box::new(Expr::Symbol(Symbol::State(Name("input_slow".to_string())))),
+                            Box::new(Expr::Symbol(Symbol::Ref(
+                                BulletId::Itself,
+                                StateId::InputSlow,
+                            ))),
                             Box::new(Expr::Float(4.0)),
                             Box::new(Expr::Float(7.0)),
                         )),
@@ -1086,7 +1092,7 @@ mod parser_test {
             ),
             r##"
             proc main() {
-              $x = $x + if $input_slow { 4.0 } else { 7.0 }
+              self.x = self.x + if self.input_slow { 4.0 } else { 7.0 }
             }
             "##,
         );
@@ -1119,7 +1125,7 @@ mod parser_test {
                 Name("test".to_string()),
                 Signature::new(vec![Arg::new("b".to_string(), Type::Bool)], None),
                 vec![Body::Assignment(
-                    Symbol::State(Name("x".to_string())),
+                    Symbol::Ref(BulletId::Itself, StateId::PosX),
                     Expr::If(
                         Box::new(Expr::Symbol(Symbol::Var(Name("b".to_string())))),
                         Box::new(Expr::Float(1.0)),
@@ -1128,7 +1134,7 @@ mod parser_test {
                 )],
             ),
             r##"
-            proc test(b: bool) { $x = if b { 1 } else { 2 } }
+            proc test(b: bool) { self.x = if b { 1 } else { 2 } }
             "##,
         );
     }
@@ -1140,13 +1146,13 @@ mod parser_test {
                 Name("main".to_string()),
                 Signature::new(vec![], None),
                 vec![Body::Assignment(
-                    Symbol::State(Name("x".to_string())),
+                    Symbol::Ref(BulletId::Itself, StateId::PosX),
                     Expr::ProcCall(Name("func".to_string()), vec![]),
                 )],
             ),
             r##"
             proc main() {
-              $x = func()
+              self.x = func()
             }
             "##,
         );
@@ -1155,13 +1161,13 @@ mod parser_test {
                 Name("main".to_string()),
                 Signature::new(vec![], None),
                 vec![Body::Assignment(
-                    Symbol::State(Name("x".to_string())),
+                    Symbol::Ref(BulletId::Itself, StateId::PosX),
                     Expr::ProcCall(Name("func".to_string()), vec![Expr::Float(1.0)]),
                 )],
             ),
             r##"
             proc main() {
-              $x = func(1.0)
+              self.x = func(1.0)
             }
             "##,
         );
@@ -1170,7 +1176,7 @@ mod parser_test {
                 Name("main".to_string()),
                 Signature::new(vec![], None),
                 vec![Body::Assignment(
-                    Symbol::State(Name("x".to_string())),
+                    Symbol::Ref(BulletId::Itself, StateId::PosX),
                     Expr::ProcCall(
                         Name("func".to_string()),
                         vec![
@@ -1178,7 +1184,10 @@ mod parser_test {
                             Expr::Bool(false),
                             Expr::Op2(
                                 Op2::Add,
-                                Box::new(Expr::Symbol(Symbol::State(Name("x".to_string())))),
+                                Box::new(Expr::Symbol(Symbol::Ref(
+                                    BulletId::Itself,
+                                    StateId::PosX,
+                                ))),
                                 Box::new(Expr::Float(10.0)),
                             ),
                         ],
@@ -1187,7 +1196,7 @@ mod parser_test {
             ),
             r##"
             proc main() {
-              $x = func(42.0, false, $x + 10)
+              self.x = func(42.0, false, self.x + 10)
             }
             "##,
         );
@@ -1200,13 +1209,13 @@ mod parser_test {
                 Name("main".to_string()),
                 Signature::new(vec![], None),
                 vec![Body::Assignment(
-                    Symbol::State(Name("x".to_string())),
+                    Symbol::Ref(BulletId::Itself, StateId::PosX),
                     Expr::String("mojiretsu".to_string()),
                 )],
             ),
             r##"
             proc main() {
-              $x = "mojiretsu"
+              self.x = "mojiretsu"
             }
             "##,
         );
@@ -1219,7 +1228,7 @@ mod parser_test {
                 Name("main".to_string()),
                 Signature::new(vec![], None),
                 vec![Body::Assignment(
-                    Symbol::State(Name("x".to_string())),
+                    Symbol::Ref(BulletId::Itself, StateId::PosX),
                     Expr::Op2(
                         Op2::Sub,
                         Box::new(Expr::Symbol(Symbol::Ref(BulletId::Player, StateId::PosX))),
@@ -1229,7 +1238,7 @@ mod parser_test {
             ),
             r##"
             proc main() {
-              $x = player.x - self.x
+              self.x = player.x - self.x
             }
             "##,
         );

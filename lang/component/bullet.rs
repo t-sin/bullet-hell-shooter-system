@@ -31,8 +31,9 @@ impl TryFrom<Keyword> for BulletId {
     }
 }
 
-pub trait Reference {
-    fn refer(&self, bid: &BulletId, sid: &StateId) -> Data;
+pub trait StateIO {
+    fn read(&self, bid: &BulletId, sid: &StateId) -> Data;
+    fn write(&mut self, bid: &BulletId, sid: &StateId, d: Data);
 }
 
 pub trait State {

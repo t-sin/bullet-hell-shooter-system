@@ -4,7 +4,7 @@ use ggez::{graphics, Context, GameError, GameResult};
 
 use lang_compiler::BulletCode;
 use lang_component::{
-    bullet::{BulletColor, BulletId, BulletType, Reference},
+    bullet::{BulletColor, BulletId, BulletType, StateIO},
     vm::{Data, Inst, OperationQuery},
 };
 use lang_vm::{SuspendingReason, VM};
@@ -67,15 +67,19 @@ impl BulletPool {
                     match reason {
                         Ok(SuspendingReason::Terminated) => break,
                         Ok(SuspendingReason::Running) => unreachable!(),
-                        Ok(SuspendingReason::ToReferenceABullet(bid, sid)) => {
+                        Ok(SuspendingReason::ToReadState(bid, sid)) => {
                             let d = match bid {
-                                BulletId::Player => player.refer(&bid, &sid),
-                                BulletId::Itself => state.refer(&bid, &sid),
+                                BulletId::Player => player.read(&bid, &sid),
+                                BulletId::Itself => state.read(&bid, &sid),
                                 _ => todo!("bullet {:?} is not implemented yet", bid),
                             };
 
                             vm.push_data(d);
                         }
+                        Ok(SuspendingReason::ToWriteState(bid, sid, d)) => match bid {
+                            BulletId::Itself => state.write(&bid, &sid, d),
+                            _ => todo!("bullet {:?} is not implemented yet", bid),
+                        },
                         Err(err) => {
                             return Err(GameError::CustomError(format!("error = {:?}", err)))
                         }

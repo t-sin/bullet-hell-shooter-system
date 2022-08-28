@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use lang_component::{
-    bullet::StateId,
+    bullet::{BulletId, StateId},
     syntax::{Body, Expr, Name, Op2, Signature, Symbol, SyntaxTree, Type},
     vm::{ExternalOperation, Inst},
 };
@@ -327,7 +327,7 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
                     StateId::Enabled => StackData::Bool,
                 };
                 state.stack.push(sd);
-                emit!(state, Inst::Ref(*bid, *sid));
+                emit!(state, Inst::RefRead(*bid, *sid));
             }
             Symbol::State(Name(name)) => {
                 if let Some(id) = state.object_state_ids.get_state_id(name) {
@@ -458,7 +458,12 @@ fn codegen_proc_body(
     for b in body.iter() {
         match b {
             Body::Assignment(sym, expr) => match sym {
-                Symbol::Ref(_, _) => return Err(CodegenError::BulletRefNotAllowedHere),
+                Symbol::Ref(bid, sid) => {
+                    codegen_expr(expr, state)?;
+                    let _ = state.stack.pop();
+
+                    emit!(state, Inst::RefWrite(*bid, *sid));
+                }
                 Symbol::State(Name(name)) => {
                     if let Some(id) = state.object_state_ids.get_state_id(name) {
                         codegen_expr(expr, state)?;
@@ -807,10 +812,14 @@ mod codegen_test {
     #[test]
     fn test_codegen_assign_value_to_px() {
         test_codegen(
-            vec![Inst::Float(1.0), Inst::Set(0), Inst::Term],
+            vec![
+                Inst::Float(1.0),
+                Inst::RefWrite(BulletId::Itself, StateId::PosX),
+                Inst::Term,
+            ],
             r##"
             proc main() {
-              $x = 1.0
+              self.x = 1.0
             }
             "##,
         );
@@ -823,12 +832,12 @@ mod codegen_test {
                 Inst::Float(1.0),
                 Inst::Float(2.0),
                 Inst::Add,
-                Inst::Set(1),
+                Inst::RefWrite(BulletId::Itself, StateId::PosY),
                 Inst::Term,
             ],
             r##"
             proc main() {
-              $y = 1.0 + 2.0
+              self.y = 1.0 + 2.0
             }
             "##,
         );
@@ -839,12 +848,12 @@ mod codegen_test {
                 Inst::Float(3.0),
                 Inst::Mul,
                 Inst::Add,
-                Inst::Set(1),
+                Inst::RefWrite(BulletId::Itself, StateId::PosY),
                 Inst::Term,
             ],
             r##"
             proc main() {
-              $y = 1.0 + 2.0 * 3.0
+              self.y = 1.0 + 2.0 * 3.0
             }
             "##,
         );
@@ -854,19 +863,19 @@ mod codegen_test {
     fn test_codegen_assign_value_with_if_expr() {
         test_codegen(
             vec![
-                Inst::Get(0),
-                Inst::Get(10),
+                Inst::RefRead(BulletId::Itself, StateId::PosX),
+                Inst::RefRead(BulletId::Itself, StateId::InputSlow),
                 Inst::JumpIfFalse(3),
                 Inst::Float(4.0),
                 Inst::Jump(2),
                 Inst::Float(7.0),
                 Inst::Add,
-                Inst::Set(0),
+                Inst::RefWrite(BulletId::Itself, StateId::PosX),
                 Inst::Term,
             ],
             r##"
             proc main() {
-              $x = $x + if $input_slow { 4.0 } else { 7.0 }
+              self.x = self.x + if self.input_slow { 4.0 } else { 7.0 }
             }
             "##,
         );
@@ -877,39 +886,39 @@ mod codegen_test {
         test_codegen(
             vec![
                 Inst::Float(42.0),
-                Inst::Get(0),
+                Inst::RefRead(BulletId::Itself, StateId::PosX),
                 Inst::Float(1.0),
                 Inst::Index,
                 Inst::Add,
-                Inst::Set(0),
+                Inst::RefWrite(BulletId::Itself, StateId::PosX),
                 Inst::Drop,
                 Inst::Term,
             ],
             r##"
             proc main() {
               let x = 42.0
-              $x = $x + x
+              self.x = self.x + x
             }
             "##,
         );
         test_codegen(
             vec![
                 Inst::Float(42.0),
-                Inst::Get(0),
+                Inst::RefRead(BulletId::Itself, StateId::PosX),
                 Inst::Float(1.0),
                 Inst::Index,
                 Inst::Add,
                 Inst::Float(1.0),
                 Inst::Index,
                 Inst::Add,
-                Inst::Set(0),
+                Inst::RefWrite(BulletId::Itself, StateId::PosX),
                 Inst::Drop,
                 Inst::Term,
             ],
             r##"
             proc main() {
               let x = 42.0
-              $x = $x + x + x
+              self.x = self.x + x + x
             }
             "##,
         );
@@ -917,14 +926,14 @@ mod codegen_test {
             vec![
                 Inst::Float(42.0),
                 Inst::Float(420.0),
-                Inst::Get(0),
+                Inst::RefRead(BulletId::Itself, StateId::PosX),
                 Inst::Float(2.0),
                 Inst::Index,
                 Inst::Add,
                 Inst::Float(1.0),
                 Inst::Index,
                 Inst::Add,
-                Inst::Set(0),
+                Inst::RefWrite(BulletId::Itself, StateId::PosX),
                 Inst::Drop,
                 Inst::Drop,
                 Inst::Term,
@@ -933,7 +942,7 @@ mod codegen_test {
             proc main() {
               let x = 42.0
               let y = 420.0
-              $x = $x + x + y
+              self.x = self.x + x + y
             }
             "##,
         );
@@ -943,17 +952,17 @@ mod codegen_test {
     fn test_codegen_global_variable_referencing() {
         test_codegen(
             vec![
-                Inst::Get(0),
+                Inst::RefRead(BulletId::Itself, StateId::PosX),
                 Inst::Read(0, Type::Float),
                 Inst::Add,
-                Inst::Set(0),
+                Inst::RefWrite(BulletId::Itself, StateId::PosX),
                 Inst::Term,
             ],
             r##"
             global v = 42.0
 
             proc main() {
-              $x = $x + v
+              self.x = self.x + v
             }
             "##,
         );
@@ -976,13 +985,13 @@ mod codegen_test {
         test_codegen(
             vec![
                 Inst::Float(100.0),
-                Inst::Get(0),
+                Inst::RefRead(BulletId::Itself, StateId::PosX),
                 Inst::Float(1.0),
                 Inst::Index,
                 Inst::Add,
                 Inst::Read(0, Type::Float),
                 Inst::Add,
-                Inst::Set(0),
+                Inst::RefWrite(BulletId::Itself, StateId::PosX),
                 Inst::Drop,
                 Inst::Term,
             ],
@@ -991,7 +1000,7 @@ mod codegen_test {
 
             proc main() {
               let l = 100.0
-              $x = $x + l + g
+              self.x = self.x + l + g
             }
             "##,
         );
@@ -1002,11 +1011,11 @@ mod codegen_test {
         test_codegen(
             vec![
                 // proc main()
-                Inst::Get(0),
+                Inst::RefRead(BulletId::Itself, StateId::PosX),
                 Inst::Float(6.0), // address of proc
                 Inst::Call,
                 Inst::Add,
-                Inst::Set(0),
+                Inst::RefWrite(BulletId::Itself, StateId::PosX),
                 Inst::Term,
                 // proc const42() -> float
                 Inst::Float(42.0),
@@ -1016,17 +1025,17 @@ mod codegen_test {
             proc const_42() -> float { return 42 }
 
             proc main() {
-              $x = $x + const_42()
+              self.x = self.x + const_42()
             }
             "##,
         );
         test_codegen(
             vec![
                 // proc main()
-                Inst::Get(0),
+                Inst::RefRead(BulletId::Itself, StateId::PosX),
                 Inst::Float(5.0), // address of proc
                 Inst::Call,
-                Inst::Set(0),
+                Inst::RefWrite(BulletId::Itself, StateId::PosX),
                 Inst::Term,
                 // proc add_42() -> float
                 Inst::Float(0.0),
@@ -1039,17 +1048,17 @@ mod codegen_test {
             proc add_42(n: float) -> float { return n + 42 }
 
             proc main() {
-              $x = add_42($x)
+              self.x = add_42(self.x)
             }
             "##,
         );
         test_codegen(
             vec![
                 // proc main()
-                Inst::Get(0),
+                Inst::RefRead(BulletId::Itself, StateId::PosX),
                 Inst::Float(10.0), // address of add_42()
                 Inst::Call,
-                Inst::Set(0),
+                Inst::RefWrite(BulletId::Itself, StateId::PosX),
                 Inst::Term,
                 // proc add_10() -> float
                 Inst::Float(0.0),
@@ -1071,7 +1080,7 @@ mod codegen_test {
             proc add_42(n: float) -> float { return add_10(n) + 32 }
 
             proc main() {
-              $x = add_42($x)
+              self.x = add_42(self.x)
             }
             "##,
         );
@@ -1085,10 +1094,10 @@ mod codegen_test {
                 Inst::Float(8.0), // address of do_nothing()
                 Inst::Call,
                 Inst::Drop,
-                Inst::Get(0),
+                Inst::RefRead(BulletId::Itself, StateId::PosX),
                 Inst::Float(42.0),
                 Inst::Add,
-                Inst::Set(0),
+                Inst::RefWrite(BulletId::Itself, StateId::PosX),
                 Inst::Term,
                 // proc do_nothing()
                 Inst::Float(-4200000.0),
@@ -1099,7 +1108,7 @@ mod codegen_test {
 
             proc main() {
               do_nothing()
-              $x = $x + 42
+              self.x = self.x + 42
             }
             "##,
         );
@@ -1109,15 +1118,15 @@ mod codegen_test {
     fn test_codegen_external_operation() {
         test_codegen(
             vec![
-                Inst::Get(0),
-                Inst::Get(1),
+                Inst::RefRead(BulletId::Itself, StateId::PosX),
+                Inst::RefRead(BulletId::Itself, StateId::PosY),
                 Inst::Operate(ExternalOperation::Fire(1)),
                 Inst::Drop,
                 Inst::Term,
             ],
             r##"
             proc main() {
-              fire("bullet_1", $x, $y)
+              fire("bullet_1", self.x, self.y)
             }
             "##,
         );

@@ -47,7 +47,8 @@ pub enum Inst {
     // state accessors
     Get(usize),
     Set(usize),
-    Ref(BulletId, StateId),
+    RefRead(BulletId, StateId),
+    RefWrite(BulletId, StateId),
     // arithmetics
     Add,
     Sub,

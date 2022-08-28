@@ -4,7 +4,7 @@ use ggez::{graphics, Context, GameError, GameResult};
 
 use lang_compiler::BulletCode;
 use lang_component::{
-    bullet::{BulletColor, BulletId, BulletType, Reference, StateId},
+    bullet::{BulletColor, BulletId, BulletType, StateIO, StateId},
     vm::{Data, OperationQuery},
 };
 use lang_vm::{SuspendingReason, VM};
@@ -36,8 +36,11 @@ impl Player {
             match reason {
                 Ok(SuspendingReason::Terminated) => break,
                 Ok(SuspendingReason::Running) => unreachable!(),
-                Ok(SuspendingReason::ToReferenceABullet(bullet, state)) => {
-                    self.vm.push_data(self.refer(&bullet, &state));
+                Ok(SuspendingReason::ToReadState(bid, sid)) => {
+                    self.vm.push_data(self.read(&bid, &sid));
+                }
+                Ok(SuspendingReason::ToWriteState(bid, sid, d)) => {
+                    self.state.write(&bid, &sid, d);
                 }
                 Err(err) => return Err(GameError::CustomError(format!("error = {:?}", err))),
             }
@@ -57,23 +60,21 @@ impl Player {
     }
 }
 
-impl Reference for Player {
-    fn refer(&self, bid: &BulletId, sid: &StateId) -> Data {
+impl StateIO for Player {
+    fn read(&self, bid: &BulletId, sid: &StateId) -> Data {
         if !matches!(bid, BulletId::Player | BulletId::Itself) {
             panic!("I'm not a {:?}", bid);
         }
 
-        match sid {
-            StateId::PosX => Data::Float(self.state.pos.x),
-            StateId::PosY => Data::Float(self.state.pos.y),
-            StateId::InputUp => Data::Bool(self.state.input.up),
-            StateId::InputDown => Data::Bool(self.state.input.down),
-            StateId::InputLeft => Data::Bool(self.state.input.left),
-            StateId::InputRight => Data::Bool(self.state.input.right),
-            StateId::InputShot => Data::Bool(self.state.input.shot),
-            StateId::InputSlow => Data::Bool(self.state.input.slow),
-            StateId::Enabled => Data::Bool(self.state.enabled),
+        self.state.read(bid, sid)
+    }
+
+    fn write(&mut self, bid: &BulletId, sid: &StateId, d: Data) {
+        if !matches!(bid, BulletId::Player | BulletId::Itself) {
+            panic!("I'm not a {:?}", bid);
         }
+
+        self.state.write(bid, sid, d);
     }
 }
 

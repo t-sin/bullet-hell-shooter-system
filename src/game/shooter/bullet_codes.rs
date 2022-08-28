@@ -25,8 +25,8 @@ const CODE_MAP: [(&str, &str); 2] = [
 
           vx = if vx == 0 { (player.x - self.x) / 10 } else { vx }
           vy = if vy == 0 { (player.y - self.y) / 10 } else { vy }
-          $x = self.x + vx
-          $y = self.y + vy
+          self.x = self.x + vx
+          self.y = self.y + vy
         }
         "##,
     ),
@@ -41,10 +41,10 @@ const CODE_MAP: [(&str, &str); 2] = [
         }
 
         proc main() {
-          $x = self.x - if player.input_left { velocity() } else { 0.0 }
-          $x = self.x + if player.input_right { velocity() } else { 0.0 }
-          $y = self.y - if player.input_up { velocity() } else { 0.0 }
-          $y = self.y + if player.input_down { velocity() } else { 0.0 }
+          self.x = self.x - if player.input_left { velocity() } else { 0.0 }
+          self.x = self.x + if player.input_right { velocity() } else { 0.0 }
+          self.y = self.y - if player.input_up { velocity() } else { 0.0 }
+          self.y = self.y + if player.input_down { velocity() } else { 0.0 }
 
           fire("bullet1", 200, 100)
         }

@@ -16,7 +16,7 @@ use ggez::{
 use glam;
 
 use lang_component::{
-    bullet::{BulletColor, BulletId, BulletType, Reference, State, StateId},
+    bullet::{BulletColor, BulletId, BulletType, State, StateIO, StateId},
     syntax::Type,
     vm::Data,
 };
@@ -168,12 +168,8 @@ impl State for BulletState {
     }
 }
 
-impl Reference for BulletState {
-    fn refer(&self, bid: &BulletId, sid: &StateId) -> Data {
-        if !matches!(bid, BulletId::Player | BulletId::Itself) {
-            panic!("I'm not a {:?}", bid);
-        }
-
+impl StateIO for BulletState {
+    fn read(&self, _bid: &BulletId, sid: &StateId) -> Data {
         match sid {
             StateId::PosX => Data::Float(self.pos.x),
             StateId::PosY => Data::Float(self.pos.y),
@@ -184,6 +180,56 @@ impl Reference for BulletState {
             StateId::InputShot => Data::Bool(self.input.shot),
             StateId::InputSlow => Data::Bool(self.input.slow),
             StateId::Enabled => Data::Bool(self.enabled),
+        }
+    }
+
+    fn write(&mut self, _bid: &BulletId, sid: &StateId, d: Data) {
+        match sid {
+            StateId::PosX => {
+                if let Data::Float(f) = d {
+                    self.pos.x = f
+                }
+            }
+            StateId::PosY => {
+                if let Data::Float(f) = d {
+                    self.pos.y = f
+                }
+            }
+            StateId::InputUp => {
+                if let Data::Bool(b) = d {
+                    self.input.up = b
+                }
+            }
+            StateId::InputDown => {
+                if let Data::Bool(b) = d {
+                    self.input.down = b
+                }
+            }
+            StateId::InputLeft => {
+                if let Data::Bool(b) = d {
+                    self.input.left = b
+                }
+            }
+            StateId::InputRight => {
+                if let Data::Bool(b) = d {
+                    self.input.right = b
+                }
+            }
+            StateId::InputShot => {
+                if let Data::Bool(b) = d {
+                    self.input.shot = b
+                }
+            }
+            StateId::InputSlow => {
+                if let Data::Bool(b) = d {
+                    self.input.slow = b
+                }
+            }
+            StateId::Enabled => {
+                if let Data::Bool(b) = d {
+                    self.enabled = b
+                }
+            }
         }
     }
 }
