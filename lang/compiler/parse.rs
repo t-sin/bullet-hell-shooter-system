@@ -327,7 +327,7 @@ fn parse_expr_bullet_ref<'a>(t: Input<'a>) -> IResult<Input<'a>, Symbol, ParseEr
                 }
             };
 
-            Ok((t, Symbol::BulletRef(bullet, state)))
+            Ok((t, Symbol::Ref(bullet, state)))
         }
         Ok((_, _)) => unreachable!(),
         Err(err) => Err(err),

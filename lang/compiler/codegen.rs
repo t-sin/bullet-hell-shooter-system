@@ -34,7 +34,7 @@ impl From<Symbol> for StackData {
         match s {
             Symbol::State(Name(name)) => StackData::State((Type::Float, name.clone())),
             Symbol::Var(Name(name)) => StackData::Var((Type::Float, name.clone())),
-            Symbol::BulletRef(_, state) => match state {
+            Symbol::Ref(_, state) => match state {
                 StateId::PosX => StackData::Var((Type::Float, "xxx.x".to_string())),
                 StateId::PosY => StackData::Var((Type::Float, "xxx.y".to_string())),
                 StateId::InputUp => StackData::Var((Type::Bool, "xxx.input_up".to_string())),
@@ -314,7 +314,7 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
         }
         Expr::String(_) => todo!("treat strings"),
         Expr::Symbol(sym) => match sym {
-            Symbol::BulletRef(bid, sid) => {
+            Symbol::Ref(bid, sid) => {
                 let sd = match *sid {
                     StateId::PosX => StackData::Float,
                     StateId::PosY => StackData::Float,
@@ -458,7 +458,7 @@ fn codegen_proc_body(
     for b in body.iter() {
         match b {
             Body::Assignment(sym, expr) => match sym {
-                Symbol::BulletRef(_, _) => return Err(CodegenError::BulletRefNotAllowedHere),
+                Symbol::Ref(_, _) => return Err(CodegenError::BulletRefNotAllowedHere),
                 Symbol::State(Name(name)) => {
                     if let Some(id) = state.object_state_ids.get_state_id(name) {
                         codegen_expr(expr, state)?;
