@@ -59,7 +59,7 @@ impl Default for InputState {
     }
 }
 
-pub struct BulletState {
+pub struct Bullet {
     pub enabled: bool,
     pub visible: bool,
     pub input: InputState,
@@ -68,7 +68,7 @@ pub struct BulletState {
     pub vm: VM,
 }
 
-impl BulletState {
+impl Bullet {
     pub fn new(x: f32, y: f32, atype: BulletType, acolor: BulletColor, bc: Rc<BulletCode>) -> Self {
         let mut vm = VM::new();
         vm.set_code(bc.code.clone());
@@ -122,7 +122,7 @@ impl BulletState {
     }
 }
 
-impl StateIO for BulletState {
+impl StateIO for Bullet {
     fn read(&self, _bid: &BulletId, sid: &StateId) -> Data {
         match sid {
             StateId::PosX => Data::Float(self.pos.x),
@@ -188,7 +188,7 @@ impl StateIO for BulletState {
     }
 }
 
-impl SceneDrawable for BulletState {
+impl SceneDrawable for Bullet {
     fn draw(&self, ctx: &mut Context, canvas: &mut graphics::Canvas) -> GameResult<()> {
         let color = match self.appearance.color {
             BulletColor::White => Color::from_rgb(255, 255, 255),

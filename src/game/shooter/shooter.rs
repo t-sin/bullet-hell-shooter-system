@@ -8,19 +8,17 @@ use lang_component::{
     vm::{Data, OperationQuery},
 };
 
-use super::{
-    bullet::BulletState, bullet_codes::BulletCodes, bullet_pool::BulletPool, SceneDrawable,
-};
+use super::{bullet::Bullet, bullet_codes::BulletCodes, bullet_pool::BulletPool, SceneDrawable};
 
 pub struct Objects {
-    pub player: Rc<RefCell<BulletState>>,
+    pub player: Rc<RefCell<Bullet>>,
     pub bullets: BulletPool,
 }
 
 impl Objects {
     fn new(bullet_codes: &BulletCodes) -> Self {
         let bc = bullet_codes.by_name.get("player").unwrap();
-        let player = BulletState::new(
+        let player = Bullet::new(
             200.0,
             400.0,
             BulletType::Player,

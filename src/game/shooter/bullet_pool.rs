@@ -9,10 +9,10 @@ use lang_component::{
 };
 use lang_vm::SuspendingReason;
 
-use super::{bullet::BulletState, shooter::OperationProcessor, SceneDrawable};
+use super::{bullet::Bullet, shooter::OperationProcessor, SceneDrawable};
 
 pub struct BulletPool {
-    pub states: Vec<Rc<RefCell<BulletState>>>,
+    pub states: Vec<Rc<RefCell<Bullet>>>,
     pub nexts: Vec<Option<usize>>,
     pub first_disabled: Option<usize>,
     enabled_count: usize,
@@ -27,7 +27,7 @@ impl BulletPool {
         let mut nexts = Vec::new();
 
         for n in 0..Self::BULLET_MAX {
-            let mut state = BulletState::new(
+            let mut state = Bullet::new(
                 0.0,
                 0.0,
                 BulletType::Bullet1,
@@ -54,7 +54,7 @@ impl BulletPool {
 
     pub fn update(
         &mut self,
-        player: Rc<RefCell<BulletState>>,
+        player: Rc<RefCell<Bullet>>,
         op_queue: &mut VecDeque<OperationQuery>,
     ) -> GameResult<()> {
         for idx in 0..Self::BULLET_MAX {
