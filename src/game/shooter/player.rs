@@ -30,17 +30,19 @@ impl Player {
     }
 
     pub fn update(&mut self, op_queue: &mut VecDeque<OperationQuery>) -> GameResult<()> {
-        let reason = self.vm.start(0, &mut self.state, op_queue);
+        let mut reason = self.vm.start(0, &mut self.state, op_queue);
 
         loop {
             match reason {
                 Ok(SuspendingReason::Terminated) => break,
                 Ok(SuspendingReason::Running) => unreachable!(),
-                Ok(SuspendingReason::ToReferenceABullet(_, _)) => todo!(),
+                Ok(SuspendingReason::ToReferenceABullet(bullet, state)) => {
+                    self.vm.push_data(self.refer(&bullet, &state));
+                }
                 Err(err) => return Err(GameError::CustomError(format!("error = {:?}", err))),
             }
 
-            // reason = self.vm.resume(0, &mut self.state, op_queue);
+            reason = self.vm.resume(0, &mut self.state, op_queue);
         }
 
         Ok(())
@@ -64,6 +66,13 @@ impl Reference for Player {
         match sid {
             StateId::PosX => Data::Float(self.state.pos.x),
             StateId::PosY => Data::Float(self.state.pos.y),
+            StateId::InputUp => Data::Bool(self.state.input.up),
+            StateId::InputDown => Data::Bool(self.state.input.down),
+            StateId::InputLeft => Data::Bool(self.state.input.left),
+            StateId::InputRight => Data::Bool(self.state.input.right),
+            StateId::InputShot => Data::Bool(self.state.input.shot),
+            StateId::InputSlow => Data::Bool(self.state.input.slow),
+            StateId::Enabled => Data::Bool(self.state.enabled),
         }
     }
 }

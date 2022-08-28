@@ -316,9 +316,8 @@ fn parse_expr_bullet_ref<'a>(t: Input<'a>) -> IResult<Input<'a>, Symbol, ParseEr
         Ok((t, (_, _, Token::Ident(state)))) => {
             let bullet = BulletId::Player;
 
-            let state = match &state[..] {
-                "x" => StateId::PosX,
-                "y" => StateId::PosY,
+            let state = match StateId::try_from(&state[..]) {
+                Ok(state) => state,
                 _ => {
                     return Err(Err::Error(ParseError::new(
                         t,

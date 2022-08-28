@@ -37,14 +37,14 @@ const CODE_MAP: [(&str, &str); 2] = [
         global fast_v = 7.0
 
         proc velocity() -> float {
-          return if $input_slow { slow_v } else { fast_v }
+          return if player.input_slow { slow_v } else { fast_v }
         }
 
         proc main() {
-          $x = $x - if $input_left { velocity() } else { 0.0 }
-          $x = $x + if $input_right { velocity() } else { 0.0 }
-          $y = $y - if $input_up { velocity() } else { 0.0 }
-          $y = $y + if $input_down { velocity() } else { 0.0 }
+          $x = $x - if player.input_left { velocity() } else { 0.0 }
+          $x = $x + if player.input_right { velocity() } else { 0.0 }
+          $y = $y - if player.input_up { velocity() } else { 0.0 }
+          $y = $y + if player.input_down { velocity() } else { 0.0 }
 
           fire("bullet1", 200, 100)
         }

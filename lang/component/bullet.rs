@@ -31,4 +31,30 @@ pub trait State {
 pub enum StateId {
     PosX,
     PosY,
+    InputUp,
+    InputDown,
+    InputLeft,
+    InputRight,
+    InputShot,
+    InputSlow,
+    Enabled,
+}
+
+impl TryFrom<&str> for StateId {
+    type Error = ();
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        match s {
+            "x" => Ok(StateId::PosX),
+            "y" => Ok(StateId::PosY),
+            "input_up" => Ok(StateId::InputUp),
+            "input_down" => Ok(StateId::InputDown),
+            "input_left" => Ok(StateId::InputLeft),
+            "input_right" => Ok(StateId::InputRight),
+            "input_shot" => Ok(StateId::InputShot),
+            "input_slow" => Ok(StateId::InputSlow),
+            "input_enabled" => Ok(StateId::Enabled),
+            _ => Err(()),
+        }
+    }
 }

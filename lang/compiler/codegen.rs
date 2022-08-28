@@ -35,8 +35,15 @@ impl From<Symbol> for StackData {
             Symbol::State(Name(name)) => StackData::State((Type::Float, name.clone())),
             Symbol::Var(Name(name)) => StackData::Var((Type::Float, name.clone())),
             Symbol::BulletRef(_, state) => match state {
-                StateId::PosX => StackData::Var((Type::Float, "player.x".to_string())),
-                StateId::PosY => StackData::Var((Type::Float, "player.y".to_string())),
+                StateId::PosX => StackData::Var((Type::Float, "xxx.x".to_string())),
+                StateId::PosY => StackData::Var((Type::Float, "xxx.y".to_string())),
+                StateId::InputUp => StackData::Var((Type::Bool, "xxx.input_up".to_string())),
+                StateId::InputDown => StackData::Var((Type::Bool, "xxx.input_down".to_string())),
+                StateId::InputLeft => StackData::Var((Type::Bool, "xxx.input_left".to_string())),
+                StateId::InputRight => StackData::Var((Type::Bool, "xxx.input_right".to_string())),
+                StateId::InputShot => StackData::Var((Type::Bool, "xxx.input_shot".to_string())),
+                StateId::InputSlow => StackData::Var((Type::Bool, "xxx.input_slow".to_string())),
+                StateId::Enabled => StackData::Var((Type::Bool, "xxx.enabled".to_string())),
             },
         }
     }
@@ -311,6 +318,13 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
                 let sd = match *sid {
                     StateId::PosX => StackData::Float,
                     StateId::PosY => StackData::Float,
+                    StateId::InputUp => StackData::Bool,
+                    StateId::InputDown => StackData::Bool,
+                    StateId::InputLeft => StackData::Bool,
+                    StateId::InputRight => StackData::Bool,
+                    StateId::InputShot => StackData::Bool,
+                    StateId::InputSlow => StackData::Bool,
+                    StateId::Enabled => StackData::Bool,
                 };
                 state.stack.push(sd);
                 emit!(state, Inst::Ref(*bid, *sid));
