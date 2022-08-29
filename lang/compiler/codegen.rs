@@ -32,17 +32,30 @@ impl From<Symbol> for StackData {
     fn from(s: Symbol) -> Self {
         match s {
             Symbol::Var(Name(name)) => StackData::Var((Type::Float, name.clone())),
-            Symbol::Ref(_, state) => match state {
-                StateId::PosX => StackData::Var((Type::Float, "xxx.x".to_string())),
-                StateId::PosY => StackData::Var((Type::Float, "xxx.y".to_string())),
-                StateId::InputUp => StackData::Var((Type::Bool, "xxx.input_up".to_string())),
-                StateId::InputDown => StackData::Var((Type::Bool, "xxx.input_down".to_string())),
-                StateId::InputLeft => StackData::Var((Type::Bool, "xxx.input_left".to_string())),
-                StateId::InputRight => StackData::Var((Type::Bool, "xxx.input_right".to_string())),
-                StateId::InputShot => StackData::Var((Type::Bool, "xxx.input_shot".to_string())),
-                StateId::InputSlow => StackData::Var((Type::Bool, "xxx.input_slow".to_string())),
-                StateId::Enabled => StackData::Var((Type::Bool, "xxx.enabled".to_string())),
-            },
+            Symbol::Ref(bid, state) => {
+                let bid: String = bid.into();
+                match state {
+                    StateId::PosX => StackData::Var((Type::Float, format!("{}.x", bid))),
+                    StateId::PosY => StackData::Var((Type::Float, format!("{}.y", bid))),
+                    StateId::InputUp => StackData::Var((Type::Bool, format!("{}.input_up", bid))),
+                    StateId::InputDown => {
+                        StackData::Var((Type::Bool, format!("{}.input_down", bid)))
+                    }
+                    StateId::InputLeft => {
+                        StackData::Var((Type::Bool, format!("{}.input_left", bid)))
+                    }
+                    StateId::InputRight => {
+                        StackData::Var((Type::Bool, format!("{}.input_right", bid)))
+                    }
+                    StateId::InputShot => {
+                        StackData::Var((Type::Bool, format!("{}.input_shot", bid)))
+                    }
+                    StateId::InputSlow => {
+                        StackData::Var((Type::Bool, format!("{}.input_slow", bid)))
+                    }
+                    StateId::Enabled => StackData::Var((Type::Bool, format!("{}.enabled", bid))),
+                }
+            }
         }
     }
 }

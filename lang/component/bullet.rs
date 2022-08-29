@@ -19,6 +19,17 @@ pub enum BulletId {
     Bullet(usize),
 }
 
+impl From<BulletId> for String {
+    fn from(bid: BulletId) -> String {
+        match bid {
+            BulletId::Itself => "self".to_string(),
+            BulletId::Player => "player".to_string(),
+            BulletId::Enemy(id) => format!("enemy_{}", id),
+            BulletId::Bullet(id) => format!("bullet_{}", id),
+        }
+    }
+}
+
 impl TryFrom<Keyword> for BulletId {
     type Error = ();
 
