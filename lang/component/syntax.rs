@@ -74,7 +74,18 @@ pub enum Symbol {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Body {
+    // `let x = ...`
+    //   is available in `proc`, `bullet` and `stage`
+    //   will be removed at the end of `proc`, `bullet` and `stage`
     LexicalDefine(Symbol, Expr),
+    // `local x = ...`
+    //   is available in `bullet`
+    //   is shared until the bullet died
+    LocalDefine(Symbol, Expr),
+    // `global x = ...`
+    //   is available in a `proc`, `bullet`
+    //   is shared in the stage, over any bullets
+    GlobalDefine(Symbol, Expr),
     Assignment(Symbol, Expr),
     Return(Option<Expr>),
     Expr(Box<Expr>),
@@ -94,6 +105,7 @@ pub enum Expr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SyntaxTree {
-    GlobalDefine(Symbol, Expr),
     DefProc(Name, Signature, Vec<Body>),
+    DefBullet(Name, Signature, Vec<Body>),
+    DefStage(Name, Signature, Vec<Body>),
 }

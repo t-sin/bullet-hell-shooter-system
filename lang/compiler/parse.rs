@@ -213,39 +213,68 @@ fn parse_body_block_return<'a>(t: Input<'a>) -> IResult<Input<'a>, Body, ParseEr
     }
 }
 
-fn parse_body_block_lexical_define<'a>(
-    t: Input<'a>,
-) -> IResult<Input<'a>, Body, ParseError<Input<'a>>> {
-    match tuple((
-        token(Token::Keyword(Box::new(Keyword::Let))),
-        token_type(Token::Ident("".to_string())),
-        token(Token::Assign),
-        parse_expr,
-        alt((
-            token(Token::Newline),
-            peek(token(Token::Delim(Box::new(Delimiter::CloseBrace)))),
-        )),
-    ))(t)
-    {
-        Ok((t, (_, Token::Ident(target_name), _, expr, _))) => {
-            if let Some(name) = make_symbol(target_name) {
-                Ok((t, Body::LexicalDefine(name, expr)))
-            } else {
-                Err(Err::Error(ParseError::new(t, ErrorKind::EmptyName, None)))
+fn parse_body_let_like<'a>(
+    key: Keyword,
+) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, Body, ParseError<Input<'a>>> {
+    let f = move |t| {
+        let (t, name, expr) = match tuple((
+            token(Token::Keyword(Box::new(key.clone()))),
+            token_type(Token::Ident("".to_string())),
+            token(Token::Assign),
+            parse_expr,
+            alt((
+                token(Token::Newline),
+                peek(token(Token::Delim(Box::new(Delimiter::CloseBrace)))),
+            )),
+        ))(t)
+        {
+            Ok((t, (_, Token::Ident(target_name), _, expr, _))) => {
+                if let Some(name) = make_symbol(target_name) {
+                    if let Keyword::Let = key {
+                        (t, name, expr)
+                    } else {
+                        match expr {
+                            Expr::Float(_) => (t, name, expr),
+                            Expr::Bool(_) => (t, name, expr),
+                            _ => {
+                                return Err(Err::Error(ParseError::new(
+                                    t,
+                                    ErrorKind::InvalidGlobalDefine,
+                                    None,
+                                )))
+                            }
+                        }
+                    }
+                } else {
+                    return Err(Err::Error(ParseError::new(t, ErrorKind::EmptyName, None)));
+                }
             }
+            Ok((t, (_, _, _, _, _))) => {
+                return Err(Err::Error(ParseError::new(
+                    t,
+                    ErrorKind::InvalidGlobalDefine,
+                    None,
+                )))
+            }
+            Err(Err::Error(err)) => {
+                return Err(Err::Error(ParseError::new(
+                    t,
+                    ErrorKind::InvalidGlobalDefine,
+                    Some(Box::new(err)),
+                )))
+            }
+            Err(err) => return Err(err),
+        };
+
+        match key {
+            Keyword::Global => Ok((t, Body::GlobalDefine(name, expr))),
+            Keyword::Local => Ok((t, Body::LocalDefine(name, expr))),
+            Keyword::Let => Ok((t, Body::LexicalDefine(name, expr))),
+            _ => unreachable!(),
         }
-        Ok((t, (_, _, _, _, _))) => Err(Err::Error(ParseError::new(
-            t,
-            ErrorKind::InvalidLexicalDefine,
-            None,
-        ))),
-        Err(Err::Error(err)) => Err(Err::Error(ParseError::new(
-            t,
-            ErrorKind::InvalidLexicalDefine,
-            Some(Box::new(err)),
-        ))),
-        Err(err) => Err(err),
-    }
+    };
+
+    f
 }
 
 fn parse_body_block_assignment<'a>(
@@ -276,7 +305,9 @@ fn parse_body_block<'a>(t: Input<'a>) -> IResult<Input<'a>, Vec<Body>, ParseErro
         token(Token::Delim(Box::new(Delimiter::OpenBrace))),
         tuple((
             many0(alt((
-                map(parse_body_block_lexical_define, |ld| Some(ld)),
+                map(parse_body_let_like(Keyword::Global), |ll| Some(ll)),
+                map(parse_body_let_like(Keyword::Local), |ll| Some(ll)),
+                map(parse_body_let_like(Keyword::Let), |ll| Some(ll)),
                 map(parse_body_block_assignment, |a| Some(a)),
                 map(parse_expr, |e| Some(Body::Expr(Box::new(e)))),
                 map(token(Token::Newline), |_| None),
@@ -593,44 +624,6 @@ fn parse_expr<'a>(t: Input<'a>) -> IResult<Input<'a>, Expr, ParseError<Input<'a>
     parse_expr_op_level4(t)
 }
 
-fn parse_global_define<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, ParseError<Input<'a>>> {
-    match tuple((
-        token(Token::Keyword(Box::new(Keyword::Global))),
-        token_type(Token::Ident("".to_string())),
-        token(Token::Assign),
-        parse_expr,
-        alt((token(Token::Newline), peek(token(Token::Eof)))),
-    ))(t)
-    {
-        Ok((t, (_, Token::Ident(target_name), _, expr, _))) => {
-            if let Some(name) = make_symbol(target_name) {
-                match expr {
-                    Expr::Float(_) => Ok((t, SyntaxTree::GlobalDefine(name, expr))),
-                    Expr::Bool(_) => Ok((t, SyntaxTree::GlobalDefine(name, expr))),
-                    _ => Err(Err::Error(ParseError::new(
-                        t,
-                        ErrorKind::InvalidGlobalDefine,
-                        None,
-                    ))),
-                }
-            } else {
-                Err(Err::Error(ParseError::new(t, ErrorKind::EmptyName, None)))
-            }
-        }
-        Ok((t, (_, _, _, _, _))) => Err(Err::Error(ParseError::new(
-            t,
-            ErrorKind::InvalidGlobalDefine,
-            None,
-        ))),
-        Err(Err::Error(err)) => Err(Err::Error(ParseError::new(
-            t,
-            ErrorKind::InvalidGlobalDefine,
-            Some(Box::new(err)),
-        ))),
-        Err(err) => Err(err),
-    }
-}
-
 fn parse_defproc_arg<'a>(t: Input<'a>) -> IResult<Input<'a>, Arg, ParseError<Input<'a>>> {
     match tuple((
         token_type(Token::Ident("".to_string())),
@@ -670,38 +663,50 @@ fn parse_defproc_args<'a>(t: Input<'a>) -> IResult<Input<'a>, Vec<Arg>, ParseErr
     }
 }
 
-fn parse_defproc<'a>(t: Input<'a>) -> IResult<Input<'a>, SyntaxTree, ParseError<Input<'a>>> {
-    match tuple((
-        token(Token::Keyword(Box::new(Keyword::Proc))),
-        token_type(Token::Ident("".to_string())),
-        parse_defproc_args,
-        opt(preceded(
-            token(Token::Delim(Box::new(Delimiter::Arrow))),
-            token_type(Token::Type(Box::new(Type::Float))),
-        )),
-        parse_body_block,
-        alt((token(Token::Newline), peek(token(Token::Eof)))),
-    ))(t)
-    {
-        Ok((t, (_, Token::Ident(name), args, Some(Token::Type(r#type)), body, _))) => Ok((
-            t,
-            SyntaxTree::DefProc(
-                Name(name.to_string()),
+fn parse_defproc_like<'a>(
+    key: Keyword,
+) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, SyntaxTree, ParseError<Input<'a>>> {
+    let f = move |t: Input<'a>| {
+        let (t, name, sig, body): (Input<'a>, String, Signature, Vec<Body>) = match tuple((
+            token(Token::Keyword(Box::new(key.clone()))),
+            token_type(Token::Ident("".to_string())),
+            parse_defproc_args,
+            opt(preceded(
+                token(Token::Delim(Box::new(Delimiter::Arrow))),
+                token_type(Token::Type(Box::new(Type::Float))),
+            )),
+            parse_body_block,
+            alt((token(Token::Newline), peek(token(Token::Eof)))),
+        ))(t)
+        {
+            Ok((t, (_, Token::Ident(name), args, Some(Token::Type(r#type)), body, _))) => (
+                t,
+                name.to_string(),
                 Signature::new(args, Some(**r#type)),
                 body,
             ),
-        )),
-        Ok((t, (_, Token::Ident(name), args, None, body, _))) => Ok((
-            t,
-            SyntaxTree::DefProc(Name(name.to_string()), Signature::new(args, None), body),
-        )),
-        Ok((t, (_, _, _, _, _, _))) => Err(Err::Error(ParseError::new(
-            t,
-            ErrorKind::InvalidDefProc,
-            None,
-        ))),
-        Err(err) => Err(err),
-    }
+            Ok((t, (_, Token::Ident(name), args, None, body, _))) => {
+                (t, name.to_string(), Signature::new(args, None), body)
+            }
+            Ok((t, (_, _, _, _, _, _))) => {
+                return Err(Err::Error(ParseError::new(
+                    t,
+                    ErrorKind::InvalidDefProc,
+                    None,
+                )))
+            }
+            Err(err) => return Err(err),
+        };
+
+        match key {
+            Keyword::Proc => Ok((t, SyntaxTree::DefProc(Name(name), sig, body))),
+            Keyword::Bullet => Ok((t, SyntaxTree::DefBullet(Name(name), sig, body))),
+            Keyword::Stage => Ok((t, SyntaxTree::DefStage(Name(name), sig, body))),
+            _ => unreachable!(),
+        }
+    };
+
+    f
 }
 
 type Parse1Result<'a> = IResult<Input<'a>, Option<SyntaxTree>, ParseError<Input<'a>>>;
@@ -710,8 +715,9 @@ fn parse_1<'a>(t: Input<'a>) -> Parse1Result<'a> {
     alt((
         // value(None, token_type_of(Token::LineComment("".to_string()))),
         map(token(Token::Newline), |_| None),
-        map(parse_global_define, |ga| Some(ga)),
-        map(parse_defproc, |f| Some(f)),
+        map(parse_defproc_like(Keyword::Proc), |f| Some(f)),
+        map(parse_defproc_like(Keyword::Bullet), |f| Some(f)),
+        map(parse_defproc_like(Keyword::Stage), |f| Some(f)),
     ))(t)
 }
 
@@ -761,14 +767,6 @@ mod parser_test {
             println!("This test case itself is wrong....");
             assert!(false);
         }
-    }
-
-    #[test]
-    fn test_parse_global_define() {
-        test_parse_1(
-            SyntaxTree::GlobalDefine(Symbol::Var(Name("val".to_string())), Expr::Float(42.0)),
-            "global val = 42.0",
-        );
     }
 
     #[test]
@@ -1234,6 +1232,56 @@ mod parser_test {
             r##"
             proc main() {
               self.x = player.x - self.x
+            }
+            "##,
+        );
+    }
+
+    #[test]
+    fn test_parse_proc_like() {
+        test_parse_1(
+            SyntaxTree::DefProc(
+                Name("func".to_string()),
+                Signature::new(vec![], None),
+                vec![Body::Expr(Box::new(Expr::Float(0.0)))],
+            ),
+            "proc func() { 0.0 }",
+        );
+        test_parse_1(
+            SyntaxTree::DefBullet(
+                Name("b1".to_string()),
+                Signature::new(vec![], None),
+                vec![Body::Expr(Box::new(Expr::Float(0.0)))],
+            ),
+            "bullet b1() { 0.0 }",
+        );
+        test_parse_1(
+            SyntaxTree::DefStage(
+                Name("stage1".to_string()),
+                Signature::new(vec![], None),
+                vec![Body::Expr(Box::new(Expr::Float(0.0)))],
+            ),
+            "stage stage1() { 0.0 }",
+        );
+    }
+
+    #[test]
+    fn test_parse_let_like() {
+        test_parse_1(
+            SyntaxTree::DefBullet(
+                Name("b1".to_string()),
+                Signature::new(vec![], None),
+                vec![
+                    Body::GlobalDefine(Symbol::Var(Name("g".to_string())), Expr::Float(42.0)),
+                    Body::LocalDefine(Symbol::Var(Name("l".to_string())), Expr::Float(420.0)),
+                    Body::LexicalDefine(Symbol::Var(Name("v".to_string())), Expr::Float(4200.0)),
+                ],
+            ),
+            r##"
+            bullet b1() {
+              global g = 42.0
+              local l = 420.0
+              let v = 4200.0
             }
             "##,
         );

@@ -514,6 +514,7 @@ fn codegen_proc_body(
                 emit!(state, Inst::Drop);
                 let _ = state.stack.pop();
             }
+            _ => todo!(),
         }
     }
 
@@ -608,36 +609,37 @@ fn codegen_syntax_trees(
             SyntaxTree::DefProc(Name(name), signature, body) => {
                 codegen_proc(name, signature, body, state)?;
             }
-            SyntaxTree::GlobalDefine(Symbol::Var(Name(name)), expr) => match expr {
-                Expr::Float(f) => {
-                    let mi = MemoryInfo::new(name.to_string(), Type::Float);
-                    let offset = mi.calculate_offset(state.memory_info.clone());
+            _ => todo!(),
+            // SyntaxTree::GlobalDefine(Symbol::Var(Name(name)), expr) => match expr {
+            //     Expr::Float(f) => {
+            //         let mi = MemoryInfo::new(name.to_string(), Type::Float);
+            //         let offset = mi.calculate_offset(state.memory_info.clone());
 
-                    state.memory_info.borrow_mut().push(mi);
+            //         state.memory_info.borrow_mut().push(mi);
 
-                    let le_4bytes = f.to_le_bytes();
-                    for (idx, byte) in state.memory.as_mut_slice()[offset..offset + 4]
-                        .iter_mut()
-                        .enumerate()
-                    {
-                        *byte = le_4bytes[idx];
-                    }
-                }
-                Expr::Bool(b) => {
-                    let mi = MemoryInfo::new(name.to_string(), Type::Bool);
-                    let offset = mi.calculate_offset(state.memory_info.clone());
+            //         let le_4bytes = f.to_le_bytes();
+            //         for (idx, byte) in state.memory.as_mut_slice()[offset..offset + 4]
+            //             .iter_mut()
+            //             .enumerate()
+            //         {
+            //             *byte = le_4bytes[idx];
+            //         }
+            //     }
+            //     Expr::Bool(b) => {
+            //         let mi = MemoryInfo::new(name.to_string(), Type::Bool);
+            //         let offset = mi.calculate_offset(state.memory_info.clone());
 
-                    state.memory_info.borrow_mut().push(mi);
+            //         state.memory_info.borrow_mut().push(mi);
 
-                    state.memory[offset] = if *b { 1 } else { 0 };
-                }
-                expr => {
-                    return Err(CodegenError::GlobalDefineOnlyAllowsLiteral(expr.clone()));
-                }
-            },
-            SyntaxTree::GlobalDefine(sym, _) => {
-                return Err(CodegenError::GlobalDefineOnlyAllowsToVar(sym.clone()));
-            }
+            //         state.memory[offset] = if *b { 1 } else { 0 };
+            //     }
+            //     expr => {
+            //         return Err(CodegenError::GlobalDefineOnlyAllowsLiteral(expr.clone()));
+            //     }
+            // },
+            // SyntaxTree::GlobalDefine(sym, _) => {
+            //     return Err(CodegenError::GlobalDefineOnlyAllowsToVar(sym.clone()));
+            // }
         };
     }
 
@@ -931,63 +933,63 @@ mod codegen_test {
         );
     }
 
-    #[test]
-    fn test_codegen_global_variable_referencing() {
-        test_codegen(
-            vec![
-                Inst::RefRead(BulletId::Itself, StateId::PosX),
-                Inst::Read(0, Type::Float),
-                Inst::Add,
-                Inst::RefWrite(BulletId::Itself, StateId::PosX),
-                Inst::Term,
-            ],
-            r##"
-            global v = 42.0
+    // #[test]
+    // fn test_codegen_global_variable_referencing() {
+    //     test_codegen(
+    //         vec![
+    //             Inst::RefRead(BulletId::Itself, StateId::PosX),
+    //             Inst::Read(0, Type::Float),
+    //             Inst::Add,
+    //             Inst::RefWrite(BulletId::Itself, StateId::PosX),
+    //             Inst::Term,
+    //         ],
+    //         r##"
+    //         global v = 42.0
 
-            proc main() {
-              self.x = self.x + v
-            }
-            "##,
-        );
-        test_codegen(
-            vec![
-                Inst::Read(0, Type::Float),
-                Inst::Float(1.0),
-                Inst::Add,
-                Inst::Write(0),
-                Inst::Term,
-            ],
-            r##"
-            global v = 42.0
+    //         proc main() {
+    //           self.x = self.x + v
+    //         }
+    //         "##,
+    //     );
+    //     test_codegen(
+    //         vec![
+    //             Inst::Read(0, Type::Float),
+    //             Inst::Float(1.0),
+    //             Inst::Add,
+    //             Inst::Write(0),
+    //             Inst::Term,
+    //         ],
+    //         r##"
+    //         global v = 42.0
 
-            proc main() {
-              v = v + 1.0
-            }
-            "##,
-        );
-        test_codegen(
-            vec![
-                Inst::Float(100.0),
-                Inst::RefRead(BulletId::Itself, StateId::PosX),
-                Inst::Float(1.0),
-                Inst::Index,
-                Inst::Add,
-                Inst::Read(0, Type::Float),
-                Inst::Add,
-                Inst::RefWrite(BulletId::Itself, StateId::PosX),
-                Inst::Drop,
-                Inst::Term,
-            ],
-            r##"
-            global g = 42.0
+    //         proc main() {
+    //           v = v + 1.0
+    //         }
+    //         "##,
+    //     );
+    //     test_codegen(
+    //         vec![
+    //             Inst::Float(100.0),
+    //             Inst::RefRead(BulletId::Itself, StateId::PosX),
+    //             Inst::Float(1.0),
+    //             Inst::Index,
+    //             Inst::Add,
+    //             Inst::Read(0, Type::Float),
+    //             Inst::Add,
+    //             Inst::RefWrite(BulletId::Itself, StateId::PosX),
+    //             Inst::Drop,
+    //             Inst::Term,
+    //         ],
+    //         r##"
+    //         global g = 42.0
 
-            proc main() {
-              let l = 100.0
-              self.x = self.x + l + g
-            }
-            "##,
-        );
-    }
+    //         proc main() {
+    //           let l = 100.0
+    //           self.x = self.x + l + g
+    //         }
+    //         "##,
+    //     );
+    // }
 
     #[test]
     fn test_codegen_proc_call() {
