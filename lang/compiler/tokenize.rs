@@ -86,10 +86,13 @@ fn tokenize_keyword(s: &str) -> IResult<&str, Token> {
     match tuple((
         alt((
             tag("proc"),
+            tag("bullet"),
+            tag("stage"),
             tag("return"),
             tag("if"),
             tag("else"),
             tag("let"),
+            tag("local"),
             tag("global"),
             tag("player"),
             tag("self"),
@@ -98,10 +101,13 @@ fn tokenize_keyword(s: &str) -> IResult<&str, Token> {
     ))(s)?
     {
         (s, ("proc", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Proc)))),
+        (s, ("bullet", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Bullet)))),
+        (s, ("stage", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Stage)))),
         (s, ("return", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Return)))),
         (s, ("if", _)) => Ok((s, Token::Keyword(Box::new(Keyword::If)))),
         (s, ("else", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Else)))),
         (s, ("let", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Let)))),
+        (s, ("local", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Local)))),
         (s, ("global", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Global)))),
         (s, ("player", _)) => Ok((s, Token::Keyword(Box::new(Keyword::Player)))),
         (s, ("self", _)) => Ok((s, Token::Keyword(Box::new(Keyword::SelfKw)))),
@@ -480,5 +486,86 @@ mod tokenizer_test {
             player.x = self.x + 42
             "##,
         )
+    }
+
+    #[test]
+    fn test_tokenize_proc_like() {
+        test_tokenize_1(
+            vec![
+                Token::Newline,
+                Token::Keyword(Box::new(Keyword::Proc)),
+                Token::Ident("func".to_string()),
+                Token::Delim(Box::new(Delimiter::OpenParen)),
+                Token::Delim(Box::new(Delimiter::CloseParen)),
+                Token::Delim(Box::new(Delimiter::Arrow)),
+                Token::Type(Box::new(Type::Float)),
+                Token::Delim(Box::new(Delimiter::OpenBrace)),
+                Token::Float(Float(0.0)),
+                Token::Delim(Box::new(Delimiter::CloseBrace)),
+                Token::Newline,
+                Token::Keyword(Box::new(Keyword::Bullet)),
+                Token::Ident("bullet1".to_string()),
+                Token::Delim(Box::new(Delimiter::OpenParen)),
+                Token::Delim(Box::new(Delimiter::CloseParen)),
+                Token::Delim(Box::new(Delimiter::OpenBrace)),
+                Token::Float(Float(0.0)),
+                Token::Delim(Box::new(Delimiter::CloseBrace)),
+                Token::Newline,
+                Token::Keyword(Box::new(Keyword::Stage)),
+                Token::Ident("stage1".to_string()),
+                Token::Delim(Box::new(Delimiter::OpenParen)),
+                Token::Delim(Box::new(Delimiter::CloseParen)),
+                Token::Delim(Box::new(Delimiter::OpenBrace)),
+                Token::Float(Float(0.0)),
+                Token::Delim(Box::new(Delimiter::CloseBrace)),
+                Token::Newline,
+                Token::Eof,
+            ],
+            r##"
+            proc func() -> float { 0 }
+            bullet bullet1() { 0 }
+            stage stage1() { 0 }
+            "##,
+        );
+    }
+
+    #[test]
+    fn test_tokenize_let_like() {
+        test_tokenize_1(
+            vec![
+                Token::Newline,
+                Token::Keyword(Box::new(Keyword::Bullet)),
+                Token::Ident("bullet1".to_string()),
+                Token::Delim(Box::new(Delimiter::OpenParen)),
+                Token::Delim(Box::new(Delimiter::CloseParen)),
+                Token::Delim(Box::new(Delimiter::OpenBrace)),
+                Token::Newline,
+                Token::Keyword(Box::new(Keyword::Global)),
+                Token::Ident("a".to_string()),
+                Token::Assign,
+                Token::Float(Float(10.0)),
+                Token::Newline,
+                Token::Keyword(Box::new(Keyword::Local)),
+                Token::Ident("b".to_string()),
+                Token::Assign,
+                Token::Float(Float(20.0)),
+                Token::Newline,
+                Token::Keyword(Box::new(Keyword::Let)),
+                Token::Ident("c".to_string()),
+                Token::Assign,
+                Token::Float(Float(30.0)),
+                Token::Newline,
+                Token::Delim(Box::new(Delimiter::CloseBrace)),
+                Token::Newline,
+                Token::Eof,
+            ],
+            r##"
+            bullet bullet1() {
+              global a = 10
+              local b = 20
+              let c = 30
+            }
+            "##,
+        );
     }
 }
