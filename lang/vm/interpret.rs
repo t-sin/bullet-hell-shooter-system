@@ -1,39 +1,32 @@
 use std::collections::VecDeque;
 
 use lang_component::{
-    bullet::{BulletColor, BulletId, BulletType, StateId},
+    bullet::{BulletColor, BulletId, BulletType},
     syntax::Type,
     vm::{Data, ExternalOperation, Inst, OperationQuery},
 };
 
-use crate::{error::RuntimeError, r#macro::*, VM};
+use crate::{error::RuntimeError, r#macro::*, Continuation, SuspendingReason};
 
-pub enum SuspendingReason {
-    Terminated,
-    Running,
-    ToReadState(BulletId, StateId),
-    ToWriteState(BulletId, StateId, Data),
-}
-
-impl VM {
+impl Continuation {
     pub fn start(
         &mut self,
-        id: usize,
+        code: &Vec<Inst>,
         op_queue: &mut VecDeque<OperationQuery>,
     ) -> Result<SuspendingReason, RuntimeError> {
         //self.stack.clear();
         self.pc = 0;
 
-        self.resume(id, op_queue)
+        self.resume(code, op_queue)
     }
 
     pub fn resume(
         &mut self,
-        id: usize,
+        code: &Vec<Inst>,
         op_queue: &mut VecDeque<OperationQuery>,
     ) -> Result<SuspendingReason, RuntimeError> {
         loop {
-            match self.interpret1(id, op_queue) {
+            match self.interpret1(code, op_queue) {
                 Ok(reason) => match reason {
                     SuspendingReason::Running => continue,
                     _ => return Ok(reason),
@@ -47,11 +40,11 @@ impl VM {
 
     fn interpret1(
         &mut self,
-        id: usize,
+        code: &Vec<Inst>,
         op_queue: &mut VecDeque<OperationQuery>,
     ) -> Result<SuspendingReason, RuntimeError> {
         let pc = self.pc;
-        let inst = self.code.get(pc);
+        let inst = code.get(pc);
         self.pc += 1;
 
         match inst {
@@ -259,8 +252,8 @@ impl VM {
                 }
                 Inst::Jump(offset) => {
                     let next_pc = offset - 1;
-                    if next_pc < 0 || self.code.len() as i32 <= next_pc {
-                        return Err(RuntimeError::OutOfCode(next_pc, self.code.to_vec()));
+                    if next_pc < 0 || code.len() as i32 <= next_pc {
+                        return Err(RuntimeError::OutOfCode(next_pc, code.to_vec()));
                     }
 
                     self.pc += next_pc as usize;
@@ -273,8 +266,8 @@ impl VM {
 
                     if !b {
                         let next_pc = offset - 1;
-                        if next_pc < 0 || self.code.len() as i32 <= next_pc {
-                            return Err(RuntimeError::OutOfCode(next_pc, self.code.to_vec()));
+                        if next_pc < 0 || code.len() as i32 <= next_pc {
+                            return Err(RuntimeError::OutOfCode(next_pc, code.to_vec()));
                         }
 
                         self.pc += next_pc as usize;
@@ -287,8 +280,8 @@ impl VM {
                     let offset = float_data!(f);
                     let offset = offset as i32;
 
-                    if offset < 0 || self.code.len() as i32 <= offset {
-                        return Err(RuntimeError::OutOfCode(offset, self.code.to_vec()));
+                    if offset < 0 || code.len() as i32 <= offset {
+                        return Err(RuntimeError::OutOfCode(offset, code.to_vec()));
                     }
 
                     self.rstack.push(self.pc);
@@ -311,7 +304,7 @@ impl VM {
             },
             None => Err(RuntimeError::OutOfCode(
                 self.pc as i32,
-                Vec::from(self.code.as_ref().clone()),
+                Vec::from(code.clone()),
             )),
         }
     }
