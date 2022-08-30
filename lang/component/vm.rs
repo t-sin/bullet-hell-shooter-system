@@ -30,7 +30,7 @@ pub enum ExternalOperation {
 #[derive(Debug, Clone, PartialEq)]
 pub enum OperationQuery {
     Fire(usize, (f32, f32), BulletType, BulletColor, Vec<Data>),
-    Die(usize),
+    Die(BulletId),
 }
 
 #[derive(Debug, Clone, PartialEq)]

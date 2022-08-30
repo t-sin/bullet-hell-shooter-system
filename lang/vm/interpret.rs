@@ -78,7 +78,7 @@ impl VM {
                         Ok(SuspendingReason::Running)
                     }
                     ExternalOperation::Die => {
-                        let query = OperationQuery::Die(id);
+                        let query = OperationQuery::Die(BulletId::Itself);
                         op_queue.push_front(query);
 
                         Ok(SuspendingReason::Running)
