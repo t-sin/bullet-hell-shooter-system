@@ -2,11 +2,14 @@ mod codegen;
 mod parse;
 mod tokenize;
 
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 use nom::{error::ErrorKind, Err};
 
-use lang_component::{syntax::Signature, vm::Inst};
+use lang_component::{
+    syntax::{Signature, Type},
+    vm::Inst,
+};
 
 use crate::{
     codegen::{codegen, CodegenError, CodegenResult},
@@ -15,22 +18,29 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct BulletCode {
-    pub id: usize,
-    pub name: String,
-    pub code: Rc<Vec<Inst>>,
-    pub initial_memory: Vec<u8>,
-    pub signature: Signature,
+pub enum ProcType {
+    Proc,
+    Bullet,
+    Stage,
 }
 
-impl BulletCode {
-    pub fn new(name: &str) -> Self {
+#[derive(Debug, Clone)]
+pub struct ProcArchetype {
+    pub name: String,
+    pub r#type: ProcType,
+    pub memory: Vec<u8>,
+    pub signature: Signature,
+    pub offset: usize,
+}
+
+impl ProcArchetype {
+    pub fn new(name: &str, r#type: ProcType) -> Self {
         Self {
-            id: 0,
             name: name.to_string(),
-            code: Rc::new(Vec::new()),
-            initial_memory: Vec::from([0; 128]),
+            r#type,
+            memory: Vec::from([0; 128]),
             signature: Signature::new(Vec::new(), None),
+            offset: 0,
         }
     }
 }
@@ -50,40 +60,77 @@ pub enum CompileError {
 #[derive(Debug)]
 pub struct CompileResult {
     pub code: Vec<Inst>,
-    pub memory: Vec<u8>,
-    pub signature: Signature,
+    pub procs: HashMap<String, ProcArchetype>,
 }
 
 impl CompileResult {
-    fn new(code: Vec<Inst>, memory: Vec<u8>, signature: Signature) -> Self {
+    pub fn new() -> Self {
         Self {
-            code,
-            memory,
-            signature,
+            code: Vec::new(),
+            procs: HashMap::new(),
         }
     }
 }
 
-pub fn compile(
-    source: String,
-    code_vec: &Vec<Rc<BulletCode>>,
-) -> Result<CompileResult, CompileError> {
-    match tokenize(&source[..]) {
-        Ok((_, tokens)) => match parse(&tokens[..]) {
-            Ok((_, stvec)) => match codegen(stvec, code_vec) {
-                Ok(CodegenResult {
-                    code,
-                    memory,
-                    signature,
-                }) => Ok(CompileResult::new(code, memory, signature)),
-                Err(err) => Err(CompileError::CodegenError(err)),
-            },
-            Err(Err::Error(err)) => Err(CompileError::ParseError(err.purge_input().unwrap())),
+fn codegen_file(
+    _filename: &str,
+    source: &str,
+    result: &mut CompileResult,
+) -> Result<(), CompileError> {
+    let result = codegen(stvec, result);
+    let codegen_result = match result {
+        Ok(result) => result,
+        Err(err) => return Err(CompileError::CodegenError(err)),
+    };
+
+    Ok(())
+}
+
+pub enum ResolveType {
+    Proc(String),
+    GlobalDef(String),
+    LocalDef(String),
+}
+
+pub struct Proc {
+    pub name: String,
+    pub r#type: ProcType,
+    pub code: Vec<Inst>,
+    pub offset_address: usize,
+    pub local_memory: Vec<(String, Type)>,
+    pub global_memory: Vec<(String, Type)>,
+    pub unresolved_list: Vec<(ResolveType, usize)>,
+}
+
+pub struct CodegenResult {
+    pub procs: Vec<Proc>,
+}
+
+pub fn compile(sources: Vec<(String, String)>) -> Result<CompileResult, CompileError> {
+    for (filename, source) in sources.iter() {
+        let result = tokenize(&source[..]);
+        let tokens = match result {
+            Ok((_, tokens)) => tokens,
+            Err(Err::Error(err)) => {
+                return Err(CompileError::TokenizeError(TokenizerError {
+                    kind: err.code,
+                }))
+            }
+            Err(err) => panic!("tokenizer error = {:?}", err),
+        };
+
+        let result = parse(&tokens[..]);
+        let stvec = match result {
+            Ok((_, stvec)) => stvec,
+            Err(Err::Error(err)) => {
+                return Err(CompileError::ParseError(err.purge_input().unwrap()))
+            }
             Err(err) => panic!("parse error = {:?}", err),
-        },
-        Err(Err::Error(err)) => Err(CompileError::TokenizeError(TokenizerError {
-            kind: err.code,
-        })),
-        Err(err) => panic!("tokenizer error = {:?}", err),
+        };
+
+        match codegen_file(stvec, &mut result) {}
     }
+
+    let mut result = CompileResult::new();
+    Ok(result)
 }

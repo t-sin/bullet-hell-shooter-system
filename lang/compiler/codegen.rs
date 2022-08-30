@@ -6,8 +6,6 @@ use lang_component::{
     vm::{ExternalOperation, Inst},
 };
 
-use crate::BulletCode;
-
 type VarInfo = (Type, String);
 
 #[derive(Debug, Clone)]
@@ -646,10 +644,7 @@ fn codegen_syntax_trees(
     Ok(())
 }
 
-fn codegen_pass1_generate_proc_code(
-    source: Vec<SyntaxTree>,
-    state: &mut CodegenState,
-) -> Result<(), CodegenError> {
+fn codegen(source: Vec<SyntaxTree>, state: &mut CodegenState) -> Result<(), CodegenError> {
     codegen_syntax_trees(source, state)
 }
 
