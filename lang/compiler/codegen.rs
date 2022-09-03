@@ -163,57 +163,49 @@ impl Proc {
 }
 
 #[derive(Debug, Clone)]
-pub struct CodegenState<'a> {
-    current_proc: Option<String>,
-    pub code: Vec<Inst>,
-    proc_map: Rc<RefCell<HashMap<String, Proc>>>,
-    proc_order: Rc<RefCell<Vec<String>>>,
-    stack: StackInfo,
-    pub memory: Vec<u8>,
-    memory_info: Rc<RefCell<Vec<MemoryInfo>>>,
-    current_unresolved: Rc<RefCell<Vec<ResolveInfo>>>,
-    compiled_code_vec: &'a Vec<Rc<BulletCode>>,
+pub enum ProcType {
+    Proc,
+    Bullet,
+    Stage,
 }
 
-impl<'a> CodegenState<'a> {
-    fn new(
-        proc_map: Rc<RefCell<HashMap<String, Proc>>>,
-        memory_info: Rc<RefCell<Vec<MemoryInfo>>>,
-        compiled_code_vec: &'a Vec<Rc<BulletCode>>,
-    ) -> Self {
+#[derive(Debug, Clone)]
+pub enum ResolveType {
+    Proc(String),
+    GlobalDef(String),
+    LocalDef(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct UnresolvedProc {
+    pub name: String,
+    pub r#type: ProcType,
+    pub filename: String,
+    pub code: Vec<Inst>,
+    pub offset_address: usize,
+    pub local_memory: Vec<(String, Type)>,
+    pub global_memory: Vec<(String, Type)>,
+    pub unresolved_list: Vec<(ResolveType, usize)>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CodegenState {
+    procs: Vec<UnresolvedProc>,
+    stack: StackInfo,
+}
+
+impl CodegenState {
+    fn new() -> Self {
         Self {
-            current_proc: None,
-            code: Vec::new(),
-            proc_map,
-            proc_order: Rc::new(RefCell::new(Vec::new())),
+            procs: Vec::new(),
             stack: StackInfo::new(),
-            memory: Vec::from([0; 128]),
-            memory_info: memory_info,
-            current_unresolved: Rc::new(RefCell::new(Vec::new())),
-            compiled_code_vec,
         }
     }
-
-    fn clone_without_code(&self) -> Self {
-        let mut state = self.clone();
-        state.code = vec![];
-        state
-    }
-}
-
-macro_rules! iter_names_except_main {
-    ($state: expr) => {
-        $state
-            .proc_order
-            .borrow()
-            .iter()
-            .filter(|n| &n[..] != "main")
-    };
 }
 
 macro_rules! emit {
     ($state: expr, $inst:expr) => {
-        $state.code.push($inst)
+        $state.procs.last().unwrap().code.push($inst)
     };
 }
 
@@ -553,6 +545,7 @@ fn insert_return_to_body(name: &str, body: &[Body]) -> Vec<Body> {
 
 fn codegen_proc(
     name: &str,
+    r#type: ProcType,
     sig: &Signature,
     body: &[Body],
     state: &mut CodegenState,
@@ -574,7 +567,6 @@ fn codegen_proc(
     }
 
     let mut proc_state = state.clone_without_code();
-    proc_state.current_proc = Some(name.clone());
     proc_state.stack = proc_stack;
     proc_state.code = vec![];
 
@@ -599,13 +591,19 @@ fn codegen_proc(
 }
 
 fn codegen_syntax_trees(
-    stvec: Vec<SyntaxTree>,
+    stvec: &[SyntaxTree],
     state: &mut CodegenState,
 ) -> Result<(), CodegenError> {
     for st in stvec.iter() {
         match st {
             SyntaxTree::DefProc(Name(name), signature, body) => {
-                codegen_proc(name, signature, body, state)?;
+                codegen_proc(name, ProcType::Proc, signature, body, state)?;
+            }
+            SyntaxTree::DefBullet(Name(name), signature, body) => {
+                codegen_proc(name, ProcType::Bullet, signature, body, state)?;
+            }
+            SyntaxTree::DefStage(Name(name), signature, body) => {
+                codegen_proc(name, ProcType::Stage, signature, body, state)?;
             }
             _ => todo!(),
             // SyntaxTree::GlobalDefine(Symbol::Var(Name(name)), expr) => match expr {
@@ -644,109 +642,113 @@ fn codegen_syntax_trees(
     Ok(())
 }
 
-fn codegen(source: Vec<SyntaxTree>, state: &mut CodegenState) -> Result<(), CodegenError> {
-    codegen_syntax_trees(source, state)
-}
-
-fn place_proc_into_code(
-    name: &str,
-    offset: &mut usize,
-    code: &mut Vec<Inst>,
-    proc_map: Rc<RefCell<HashMap<String, Proc>>>,
-) -> Result<(), CodegenError> {
-    if let Some(mut proc) = proc_map.borrow_mut().get_mut(name) {
-        proc.offset = *offset;
-        for inst in proc.code.iter() {
-            code.push(inst.clone());
-            *offset += 1;
-        }
-    } else {
-        return Err(CodegenError::MainProcIsNotDefined);
-    }
-
-    Ok(())
-}
-
-fn codegen_pass2_place_proc_code(state: &mut CodegenState) -> Result<(), CodegenError> {
-    let mut offset = 0;
-
-    place_proc_into_code("main", &mut offset, &mut state.code, state.proc_map.clone())?;
-
-    for name in iter_names_except_main!(state) {
-        place_proc_into_code(name, &mut offset, &mut state.code, state.proc_map.clone())?;
-    }
-
-    Ok(())
-}
-
-fn resolve_jumps_in_proc(
-    name: &str,
-    code: &mut Vec<Inst>,
-    proc_map: Rc<RefCell<HashMap<String, Proc>>>,
-) -> Result<(), CodegenError> {
-    let proc_map = proc_map.borrow();
-    let proc = proc_map.get(name);
-    if let Some(proc) = proc {
-        let proc_head = proc.offset;
-        for (offset, name) in proc.unresolved_list.iter() {
-            let inst_offset = proc_head + offset;
-            let inst = code.get_mut(inst_offset).unwrap();
-
-            if let Some(callee) = proc_map.get(name) {
-                *inst = Inst::Float(callee.offset as f32);
-            }
-        }
-    } else {
-        return Err(CodegenError::MainProcIsNotDefined);
-    }
-
-    Ok(())
-}
-
-fn codegen_pass3_resolve_jumps(state: &mut CodegenState) -> Result<(), CodegenError> {
-    resolve_jumps_in_proc("main", &mut state.code, state.proc_map.clone())?;
-
-    for name in iter_names_except_main!(state) {
-        resolve_jumps_in_proc(name, &mut state.code, state.proc_map.clone())?;
-    }
-
-    Ok(())
-}
-
-pub struct CodegenResult {
-    pub code: Vec<Inst>,
-    pub memory: Vec<u8>,
-    pub signature: Signature,
-}
-
-pub fn codegen(
-    source: Vec<SyntaxTree>,
-    compiled_bullet_vec: &Vec<Rc<BulletCode>>,
-) -> Result<CodegenResult, CodegenError> {
+pub fn codegen(source: &[SyntaxTree]) -> Result<Vec<UnresolvedProc>, CodegenError> {
     let proc_map = Rc::new(RefCell::new(HashMap::new()));
     let memory_info = Rc::new(RefCell::new(Vec::new()));
     let mut state = CodegenState::new(proc_map, memory_info, compiled_bullet_vec);
 
-    codegen_pass1_generate_proc_code(source, &mut state)?;
-    codegen_pass2_place_proc_code(&mut state)?;
-    codegen_pass3_resolve_jumps(&mut state)?;
-
-    let signature = state
-        .proc_map
-        .borrow()
-        .get("main")
-        .unwrap()
-        .signature
-        .clone();
-
-    let result = CodegenResult {
-        code: state.code,
-        memory: state.memory,
-        signature,
-    };
-
-    Ok(result)
+    codegen_syntax_trees(source, &mut state)
 }
+
+// fn place_proc_into_code(
+//     name: &str,
+//     offset: &mut usize,
+//     code: &mut Vec<Inst>,
+//     proc_map: Rc<RefCell<HashMap<String, Proc>>>,
+// ) -> Result<(), CodegenError> {
+//     if let Some(mut proc) = proc_map.borrow_mut().get_mut(name) {
+//         proc.offset = *offset;
+//         for inst in proc.code.iter() {
+//             code.push(inst.clone());
+//             *offset += 1;
+//         }
+//     } else {
+//         return Err(CodegenError::MainProcIsNotDefined);
+//     }
+
+//     Ok(())
+// }
+
+// fn codegen_pass2_place_proc_code(state: &mut CodegenState) -> Result<(), CodegenError> {
+//     let mut offset = 0;
+
+//     place_proc_into_code("main", &mut offset, &mut state.code, state.proc_map.clone())?;
+
+//     for name in iter_names_except_main!(state) {
+//         place_proc_into_code(name, &mut offset, &mut state.code, state.proc_map.clone())?;
+//     }
+
+//     Ok(())
+// }
+
+// fn resolve_jumps_in_proc(
+//     name: &str,
+//     code: &mut Vec<Inst>,
+//     proc_map: Rc<RefCell<HashMap<String, Proc>>>,
+// ) -> Result<(), CodegenError> {
+//     let proc_map = proc_map.borrow();
+//     let proc = proc_map.get(name);
+//     if let Some(proc) = proc {
+//         let proc_head = proc.offset;
+//         for (offset, name) in proc.unresolved_list.iter() {
+//             let inst_offset = proc_head + offset;
+//             let inst = code.get_mut(inst_offset).unwrap();
+
+//             if let Some(callee) = proc_map.get(name) {
+//                 *inst = Inst::Float(callee.offset as f32);
+//             }
+//         }
+//     } else {
+//         return Err(CodegenError::MainProcIsNotDefined);
+//     }
+
+//     Ok(())
+// }
+
+// fn codegen_pass3_resolve_jumps(state: &mut CodegenState) -> Result<(), CodegenError> {
+//     resolve_jumps_in_proc("main", &mut state.code, state.proc_map.clone())?;
+
+//     for name in iter_names_except_main!(state) {
+//         resolve_jumps_in_proc(name, &mut state.code, state.proc_map.clone())?;
+//     }
+
+//     Ok(())
+// }
+
+// pub struct CodegenResult {
+//     pub code: Vec<Inst>,
+//     pub memory: Vec<u8>,
+//     pub signature: Signature,
+// }
+
+// pub fn codegen(
+//     source: Vec<SyntaxTree>,
+//     compiled_bullet_vec: &Vec<Rc<BulletCode>>,
+// ) -> Result<CodegenResult, CodegenError> {
+//     let proc_map = Rc::new(RefCell::new(HashMap::new()));
+//     let memory_info = Rc::new(RefCell::new(Vec::new()));
+//     let mut state = CodegenState::new(proc_map, memory_info, compiled_bullet_vec);
+
+//     codegen_pass1_generate_proc_code(source, &mut state)?;
+//     codegen_pass2_place_proc_code(&mut state)?;
+//     codegen_pass3_resolve_jumps(&mut state)?;
+
+//     let signature = state
+//         .proc_map
+//         .borrow()
+//         .get("main")
+//         .unwrap()
+//         .signature
+//         .clone();
+
+//     let result = CodegenResult {
+//         code: state.code,
+//         memory: state.memory,
+//         signature,
+//     };
+
+//     Ok(result)
+// }
 
 #[cfg(test)]
 mod codegen_test {

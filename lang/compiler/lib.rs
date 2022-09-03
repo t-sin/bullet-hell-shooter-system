@@ -2,27 +2,20 @@ mod codegen;
 mod parse;
 mod tokenize;
 
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use nom::{error::ErrorKind, Err};
 
 use lang_component::{
-    syntax::{Signature, Type},
+    syntax::{Signature, SyntaxTree},
     vm::Inst,
 };
 
 use crate::{
-    codegen::{codegen, CodegenError, CodegenResult},
+    codegen::{codegen, CodegenError, ProcType, UnresolvedProc},
     parse::{parse, ParserError},
     tokenize::tokenize,
 };
-
-#[derive(Debug, Clone)]
-pub enum ProcType {
-    Proc,
-    Bullet,
-    Stage,
-}
 
 #[derive(Debug, Clone)]
 pub struct ProcArchetype {
@@ -74,36 +67,9 @@ impl CompileResult {
 
 fn codegen_file(
     _filename: &str,
-    source: &str,
-    result: &mut CompileResult,
-) -> Result<(), CompileError> {
-    let result = codegen(stvec, result);
-    let codegen_result = match result {
-        Ok(result) => result,
-        Err(err) => return Err(CompileError::CodegenError(err)),
-    };
-
-    Ok(())
-}
-
-pub enum ResolveType {
-    Proc(String),
-    GlobalDef(String),
-    LocalDef(String),
-}
-
-pub struct Proc {
-    pub name: String,
-    pub r#type: ProcType,
-    pub code: Vec<Inst>,
-    pub offset_address: usize,
-    pub local_memory: Vec<(String, Type)>,
-    pub global_memory: Vec<(String, Type)>,
-    pub unresolved_list: Vec<(ResolveType, usize)>,
-}
-
-pub struct CodegenResult {
-    pub procs: Vec<Proc>,
+    stvec: &[SyntaxTree],
+) -> Result<Vec<UnresolvedProc>, CodegenError> {
+    codegen(stvec)
 }
 
 pub fn compile(sources: Vec<(String, String)>) -> Result<CompileResult, CompileError> {
@@ -128,7 +94,10 @@ pub fn compile(sources: Vec<(String, String)>) -> Result<CompileResult, CompileE
             Err(err) => panic!("parse error = {:?}", err),
         };
 
-        match codegen_file(stvec, &mut result) {}
+        let unresolved = match codegen_file(filename, &stvec) {
+            Ok(unresolved) => unresolved,
+            Err(err) => return Err(CompileError::CodegenError(err)),
+        };
     }
 
     let mut result = CompileResult::new();
