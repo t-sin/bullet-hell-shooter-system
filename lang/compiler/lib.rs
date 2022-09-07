@@ -65,14 +65,9 @@ impl CompileResult {
     }
 }
 
-fn codegen_file(
-    _filename: &str,
-    stvec: &[SyntaxTree],
-) -> Result<Vec<UnresolvedProc>, CodegenError> {
-    codegen(stvec)
-}
-
 pub fn compile(sources: Vec<(String, String)>) -> Result<CompileResult, CompileError> {
+    let mut unresolved_procs: Vec<UnresolvedProc> = Vec::new();
+
     for (filename, source) in sources.iter() {
         let result = tokenize(&source[..]);
         let tokens = match result {
@@ -94,8 +89,8 @@ pub fn compile(sources: Vec<(String, String)>) -> Result<CompileResult, CompileE
             Err(err) => panic!("parse error = {:?}", err),
         };
 
-        let unresolved = match codegen_file(filename, &stvec) {
-            Ok(unresolved) => unresolved,
+        match codegen(filename, &stvec) {
+            Ok(mut unresolved) => unresolved_procs.append(&mut unresolved),
             Err(err) => return Err(CompileError::CodegenError(err)),
         };
     }
