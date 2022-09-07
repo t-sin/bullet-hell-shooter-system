@@ -107,21 +107,22 @@ impl StackInfo {
 }
 
 #[derive(Debug, Clone)]
-struct MemoryInfo {
-    name: String,
-    r#type: Type,
-}
+struct MemoryInfo(Vec<(String, Type)>);
 
 impl MemoryInfo {
-    pub fn new(name: String, r#type: Type) -> Self {
-        Self { name, r#type }
+    pub fn new() -> Self {
+        Self (Vec::new())
     }
 
-    pub fn calculate_offset(&self, info_list: Rc<RefCell<Vec<MemoryInfo>>>) -> usize {
+    pub fn add(&mut self, name: &str, r#type: Type) {
+        self.0.push((name.to_string(), r#type);
+    }
+
+    pub fn calculate_offset(&self, name: &str) -> usize {
         let mut offset = 0;
 
-        for mi in info_list.borrow().iter() {
-            let size = match mi.r#type {
+        for m in self.0.iter() {
+            let size = match m.1 {
                 Type::Float => 4,
                 Type::Bool => 1,
                 Type::String => 0, // string stored as [size, ch0, ch1, ...]
@@ -190,6 +191,7 @@ pub struct UnresolvedProc {
 
 #[derive(Debug, Clone)]
 pub struct CodegenState {
+    current_proc: String,
     procs: Vec<UnresolvedProc>,
     stack: StackInfo,
 }
@@ -197,6 +199,7 @@ pub struct CodegenState {
 impl CodegenState {
     fn new() -> Self {
         Self {
+            current_proc: "".to_string(),
             procs: Vec::new(),
             stack: StackInfo::new(),
         }
@@ -205,12 +208,13 @@ impl CodegenState {
 
 macro_rules! emit {
     ($state: expr, $inst:expr) => {
-        $state.procs.last().unwrap().code.push($inst)
+        $state.procs.iter().find(|p| p.name == $state.current_proc).unwrap().code.push($inst)
     };
 }
 
 #[derive(Debug, Clone)]
 pub enum CodegenError {
+    CurrentProcIsNone,
     UnknownVMState(String),
     UnknownVariable(String),
     UnknownName(String),
@@ -336,6 +340,18 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
                     return Ok(());
                 }
 
+                let proc = if let Some(proc) = state.procs.iter().find(|p| p.name == state.current_proc) {
+                    proc
+                } else {
+                    return Err(CodegenError::CurrentProcIsNone);
+                };
+
+                if let Some((name, r#type)) = proc.local_memory.iter().find(|(n, _)| n == name) {
+                    emit!(state, Inst::Read(offset, r#type));
+                    state.stack.push(StackData::from(r#type));
+                    return Ok(());
+                }
+                
                 if let Some(mi) = state
                     .memory_info
                     .borrow()
@@ -551,6 +567,8 @@ fn codegen_proc(
     state: &mut CodegenState,
 ) -> Result<(), CodegenError> {
     let name = name.to_string();
+
+    state.current_proc = name.clone();
 
     if let Some(_) = state.proc_map.borrow().get(&name[..]) {
         return Err(CodegenError::ProcAlreadyDefined(name.to_string()));

@@ -41,6 +41,8 @@ pub enum Inst {
     // memory operations
     Read(usize, Type),
     Write(usize),
+    ReadGlobal(usize, Type),
+    WriteGlobal(usize),
     // embedded data
     Float(f32),
     Bool(bool),
