@@ -83,7 +83,7 @@ pub enum Body {
     //   is shared until the bullet died
     LocalDefine(Symbol, Expr),
     // `global x = ...`
-    //   is available in a `proc`, `bullet`
+    //   is available in a `proc`, `bullet` and `stage`
     //   is shared in the stage, over any bullets
     GlobalDefine(Symbol, Expr),
     Assignment(Symbol, Expr),
