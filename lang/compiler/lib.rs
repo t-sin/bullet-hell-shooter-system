@@ -12,7 +12,7 @@ use lang_component::{
 };
 
 use crate::{
-    codegen::{codegen, CodegenError, ProcType, UnresolvedProc},
+    codegen::{codegen, CodegenError, ProcType},
     parse::{parse, ParserError},
     tokenize::tokenize,
 };
@@ -66,7 +66,7 @@ impl CompileResult {
 }
 
 pub fn compile(sources: Vec<(String, String)>) -> Result<CompileResult, CompileError> {
-    let mut unresolved_procs: Vec<UnresolvedProc> = Vec::new();
+    let mut parsed_sources: Vec<(&str, Vec<SyntaxTree>)> = Vec::new();
 
     for (filename, source) in sources.iter() {
         let result = tokenize(&source[..]);
@@ -89,12 +89,14 @@ pub fn compile(sources: Vec<(String, String)>) -> Result<CompileResult, CompileE
             Err(err) => panic!("parse error = {:?}", err),
         };
 
-        match codegen(filename, &stvec) {
-            Ok(mut unresolved) => unresolved_procs.append(&mut unresolved),
-            Err(err) => return Err(CompileError::CodegenError(err)),
-        };
+        parsed_sources.push((filename, stvec));
     }
 
-    let mut result = CompileResult::new();
+    let _unresolved = match codegen(parsed_sources.as_slice()) {
+        Ok(unresolved) => unresolved,
+        Err(err) => return Err(CompileError::CodegenError(err)),
+    };
+
+    let result = CompileResult::new();
     Ok(result)
 }

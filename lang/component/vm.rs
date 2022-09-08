@@ -23,6 +23,7 @@ impl Data {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExternalOperation {
+    FireDummy(String),
     Fire(usize),
     Die,
 }

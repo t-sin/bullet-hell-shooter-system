@@ -1,5 +1,3 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
-
 use lang_component::{
     bullet::StateId,
     syntax::{Body, Expr, Name, Op2, Signature, Symbol, SyntaxTree, Type},
@@ -120,7 +118,7 @@ impl StackInfo {
 }
 
 #[derive(Debug, Clone)]
-struct MemoryInfo(Vec<(String, Type)>);
+pub struct MemoryInfo(pub Vec<(String, Type)>);
 
 impl MemoryInfo {
     pub fn new() -> Self {
@@ -135,9 +133,9 @@ impl MemoryInfo {
         &self.0
     }
 
-    fn find(&mut self, name: &str) -> Option<&mut (String, Type)> {
-        match self.0.iter_mut().find(|(n, _)| n == name) {
-            Some(mut var) => Some(&mut var),
+    fn find(&mut self, name: &str) -> Option<(usize, (String, Type))> {
+        match self.0.iter().enumerate().find(|(_, (n, _))| n == name) {
+            Some((idx, val)) => Some((idx, val.clone())),
             None => None,
         }
     }
@@ -145,7 +143,7 @@ impl MemoryInfo {
     pub fn calculate_offset(&self, name: &str) -> usize {
         let mut offset = 0;
 
-        for (idx, m) in self.0.iter().enumerate() {
+        for (_idx, m) in self.0.iter().enumerate() {
             let size = match m.1 {
                 Type::Float => 4,
                 Type::Bool => 1,
@@ -160,17 +158,6 @@ impl MemoryInfo {
         }
 
         offset
-    }
-}
-
-impl Proc {
-    fn new() -> Self {
-        Self {
-            offset: 0,
-            signature: Signature::default(),
-            code: Vec::new(),
-            unresolved_list: Vec::new(),
-        }
     }
 }
 
@@ -212,40 +199,71 @@ pub struct CodegenState {
     filename: String,
     current_proc: String,
     procs: Vec<UnresolvedProc>,
+    defined_procs: Vec<(String, ProcType, Signature)>,
     stack: StackInfo,
 }
 
 impl CodegenState {
-    fn new(filename: &str) -> Self {
+    fn new() -> Self {
         Self {
-            filename: filename.to_string(),
+            filename: "仮".to_string(),
             current_proc: "".to_string(),
             procs: Vec::new(),
+            defined_procs: Vec::new(),
             stack: StackInfo::new(),
         }
     }
 
-    fn find_proc(&mut self, name: &str) -> &mut UnresolvedProc {
-        if let Some(&mut proc) = self.procs.iter_mut().find(|p| p.name == name) {
-            &mut proc
-        } else {
-            unreachable!("current proc is none");
-        }
+    fn find_proc(&self, name: &str) -> Option<(usize, &UnresolvedProc)> {
+        self.procs.iter().enumerate().find(|(_, p)| p.name == name)
     }
 
-    fn current_proc(&mut self) -> &mut UnresolvedProc {
+    fn find_proc_mut(&mut self, name: &str) -> Option<&mut UnresolvedProc> {
+        let idx =
+            if let Some((idx, _)) = self.procs.iter().enumerate().find(|(_, p)| p.name == name) {
+                idx
+            } else {
+                return None;
+            };
+
+        self.procs.get_mut(idx)
+    }
+
+    fn current_proc(&self) -> Option<(usize, &UnresolvedProc)> {
         self.find_proc(&self.current_proc)
     }
 
-    fn current_code_offset(&self) -> usize {
-        let proc = self.current_proc();
-        proc.code.len()
+    fn current_proc_mut(&mut self) -> Option<&mut UnresolvedProc> {
+        let name = self.current_proc.clone();
+        self.find_proc_mut(&name)
+    }
+
+    fn current_code_offset(&self) -> Option<usize> {
+        match self.current_proc() {
+            Some((_, proc)) => Some(proc.code.len()),
+            None => None,
+        }
     }
 }
 
 macro_rules! emit {
-    ($state: expr, $inst:expr) => {
-        $state.current_proc().code.push($inst)
+    ($state: expr, $inst:expr) => {{
+        let (idx, _) = $state.current_proc().unwrap();
+        if let Some(proc) = $state.procs.get_mut(idx) {
+            proc.code.push($inst);
+        } else {
+            panic!("[emit!] proc not found");
+        }
+    }};
+}
+
+macro_rules! current_proc {
+    ($state: expr) => {
+        if let Some(proc) = $state.current_proc_mut() {
+            proc
+        } else {
+            panic!("[current_proc] is None");
+        }
     };
 }
 
@@ -272,14 +290,13 @@ fn codegen_external_op_fire(args: Vec<Expr>, state: &mut CodegenState) -> Result
         return Err(CodegenError::WrongParamNumberWhileInvokingExternalOp);
     }
 
-    let bullet_id = if let Expr::String(bullet_name) = &args[0] {
-        if let Some((idx, _)) = state
-            .compiled_code_vec
+    let bullet_name = if let Expr::String(bullet_name) = &args[0] {
+        if let Some((name, _, _)) = state
+            .defined_procs
             .iter()
-            .enumerate()
-            .find(|(_, bc)| &bc.name == bullet_name)
+            .find(|(name, _, _)| name == bullet_name)
         {
-            idx
+            name.clone()
         } else {
             return Err(CodegenError::UnknownName(bullet_name.to_string()));
         }
@@ -301,7 +318,11 @@ fn codegen_external_op_fire(args: Vec<Expr>, state: &mut CodegenState) -> Result
     let _ = state.stack.pop();
     let _ = state.stack.pop();
 
-    emit!(state, Inst::Operate(ExternalOperation::Fire(bullet_id)));
+    // this will be replaced with `ExternalPoeration::Fire(usize)`
+    emit!(
+        state,
+        Inst::Operate(ExternalOperation::FireDummy(bullet_name))
+    );
     state.stack.push(StackData::Bool);
 
     Ok(())
@@ -377,21 +398,25 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
                     return Ok(());
                 }
 
-                let proc = state.current_proc();
+                let proc = if let Some(proc) = state.current_proc_mut() {
+                    proc
+                } else {
+                    return Err(CodegenError::UndefinedProc(state.current_proc.clone()));
+                };
 
-                if let Some((name, r#type)) = proc.local_memory.find(name) {
+                if let Some((_, (name, r#type))) = proc.local_memory.find(name) {
                     if let ProcType::Bullet = proc.r#type {
-                        let offset = proc.local_memory.calculate_offset(name);
-                        emit!(state, Inst::Read(offset, *r#type));
-                        state.stack.push(StackData::from(*r#type));
+                        let offset = proc.local_memory.calculate_offset(&name);
+                        emit!(state, Inst::Read(offset, r#type));
+                        state.stack.push(StackData::from(r#type));
                         return Ok(());
                     }
                 }
 
-                if let Some((name, r#type)) = proc.global_memory.find(name) {
-                    let offset = proc.local_memory.calculate_offset(name);
-                    emit!(state, Inst::ReadGlobal(offset, *r#type));
-                    state.stack.push(StackData::from(*r#type));
+                if let Some((_, (name, r#type))) = proc.global_memory.find(name) {
+                    let offset = proc.local_memory.calculate_offset(&name);
+                    emit!(state, Inst::ReadGlobal(offset, r#type));
+                    state.stack.push(StackData::from(r#type));
                     return Ok(());
                 }
 
@@ -432,26 +457,26 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
             };
         }
         Expr::If(cond, tru, fls) => {
-            let proc = state.current_proc();
-
             codegen_expr(cond, state)?;
             let _ = state.stack.pop();
             emit!(state, Inst::JumpIfFalse(-10000));
 
-            let else_jump_from = proc.code.len() - 1;
+            let else_jump_from = current_proc!(state).code.len() - 1;
 
             codegen_expr(tru, state)?;
             emit!(state, Inst::Jump(-20000));
-            let true_jump_from = proc.code.len() - 1;
+            let true_jump_from = current_proc!(state).code.len() - 1;
 
-            let else_jump_to = proc.code.len();
+            let else_jump_to = current_proc!(state).code.len();
             let else_jump_offset = (else_jump_to - else_jump_from) as i32;
-            *proc.code.get_mut(else_jump_from).unwrap() = Inst::JumpIfFalse(else_jump_offset);
+            *current_proc!(state).code.get_mut(else_jump_from).unwrap() =
+                Inst::JumpIfFalse(else_jump_offset);
 
             codegen_expr(fls, state)?;
-            let true_jump_to = proc.code.len();
+            let true_jump_to = current_proc!(state).code.len();
             let true_jump_offset = (true_jump_to - true_jump_from) as i32;
-            *proc.code.get_mut(true_jump_from).unwrap() = Inst::Jump(true_jump_offset);
+            *current_proc!(state).code.get_mut(true_jump_from).unwrap() =
+                Inst::Jump(true_jump_offset);
 
             let _ = state.stack.pop();
         }
@@ -462,8 +487,14 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
                 Err(err) => return Err(err),
             }
 
-            let arg_types = Vec::new();
+            let proc_info =
+                if let Some(proc) = state.defined_procs.iter().find(|(n, _, _)| n == name) {
+                    proc.clone()
+                } else {
+                    return Err(CodegenError::UndefinedProc(name.to_string()));
+                };
 
+            let mut arg_types = Vec::new();
             for arg in args.iter() {
                 codegen_expr(arg, state)?;
 
@@ -476,16 +507,29 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
                 }
             }
 
-            emit!(state, Inst::Float(-2000.0)); // dummy proc's address
-            emit!(state, Inst::Call);
+            {
+                emit!(state, Inst::Float(-2000.0)); // dummy proc's address
+                emit!(state, Inst::Call);
+            }
 
-            let offset = state.current_code_offset();
+            let sd = match proc_info.2.ret {
+                Some(r#type) => StackData::from(r#type),
+                None => StackData::Float,
+            };
+            state.stack.push(sd);
+
+            let offset = state.current_code_offset().unwrap();
             let unresolved = ResolveInfo {
                 r#type: ResolveType::Proc(name.to_string()),
                 offset: offset,
                 arg_types,
             };
-            let proc = state.current_proc();
+
+            let proc = if let Some(proc) = state.current_proc_mut() {
+                proc
+            } else {
+                return Err(CodegenError::UndefinedProc(state.current_proc.clone()));
+            };
             proc.unresolved_list.push(unresolved);
         }
     };
@@ -514,7 +558,7 @@ fn codegen_proc_body(
                     let sd = state.stack.pop().unwrap();
                     let actual_type = Type::try_from(sd).unwrap();
 
-                    if let Some((idx, StackData::Var((expected_type, name)))) =
+                    if let Some((_idx, StackData::Var((expected_type, _name)))) =
                         state.stack.get(&name)
                     {
                         if actual_type != expected_type {
@@ -534,9 +578,13 @@ fn codegen_proc_body(
                         unreachable!("スタック上の値は書き換えられないToT")
                     }
 
-                    let mut proc = state.current_proc();
+                    let proc = if let Some(proc) = state.current_proc_mut() {
+                        proc
+                    } else {
+                        return Err(CodegenError::UndefinedProc(state.current_proc.clone()));
+                    };
 
-                    if let Some(mut var) = proc.local_memory.find(name) {
+                    if let Some((_, var)) = proc.local_memory.find(name) {
                         if actual_type != var.1 {
                             return Err(CodegenError::TypeMismatch(actual_type, var.1));
                         }
@@ -548,7 +596,7 @@ fn codegen_proc_body(
                         return Ok(());
                     }
 
-                    if let Some(mut var) = proc.global_memory.find(name) {
+                    if let Some((_, var)) = proc.global_memory.find(name) {
                         if actual_type != var.1 {
                             return Err(CodegenError::TypeMismatch(actual_type, var.1));
                         }
@@ -647,7 +695,7 @@ fn codegen_proc(
     let proc = UnresolvedProc {
         name: name.clone(),
         r#type,
-        filename: "仮".to_string(),
+        filename: state.filename.clone(),
         code: Vec::new(),
         offset_address: 1000000,
         local_memory: MemoryInfo::new(),
@@ -655,8 +703,8 @@ fn codegen_proc(
         unresolved_list: Vec::new(),
     };
 
-    state.procs.push(proc);
     state.current_proc = proc.name.clone();
+    state.procs.push(proc);
 
     let mut proc_stack = StackInfo::new();
     for arg in sig.args.iter() {
@@ -668,17 +716,11 @@ fn codegen_proc(
         proc_stack.push(sd);
     }
 
-    let parent_stack = state.stack;
+    let parent_stack = state.stack.clone();
     state.stack = proc_stack;
 
     let body = insert_return_to_body(&name[..], body);
-    codegen_proc_body(
-        &name[..],
-        sig.args.len(),
-        sig.ret,
-        body.as_slice(),
-        &mut state,
-    )?;
+    codegen_proc_body(&name[..], sig.args.len(), sig.ret, body.as_slice(), state)?;
 
     assert_eq!(state.stack.info.len(), 0);
     state.stack = parent_stack;
@@ -701,50 +743,58 @@ fn codegen_syntax_trees(
             SyntaxTree::DefStage(Name(name), signature, body) => {
                 codegen_proc(name, ProcType::Stage, signature, body, state)?;
             }
-            _ => todo!(),
-            // SyntaxTree::GlobalDefine(Symbol::Var(Name(name)), expr) => match expr {
-            //     Expr::Float(f) => {
-            //         let mi = MemoryInfo::new(name.to_string(), Type::Float);
-            //         let offset = mi.calculate_offset(state.memory_info.clone());
-
-            //         state.memory_info.borrow_mut().push(mi);
-
-            //         let le_4bytes = f.to_le_bytes();
-            //         for (idx, byte) in state.memory.as_mut_slice()[offset..offset + 4]
-            //             .iter_mut()
-            //             .enumerate()
-            //         {
-            //             *byte = le_4bytes[idx];
-            //         }
-            //     }
-            //     Expr::Bool(b) => {
-            //         let mi = MemoryInfo::new(name.to_string(), Type::Bool);
-            //         let offset = mi.calculate_offset(state.memory_info.clone());
-
-            //         state.memory_info.borrow_mut().push(mi);
-
-            //         state.memory[offset] = if *b { 1 } else { 0 };
-            //     }
-            //     expr => {
-            //         return Err(CodegenError::GlobalDefineOnlyAllowsLiteral(expr.clone()));
-            //     }
-            // },
-            // SyntaxTree::GlobalDefine(sym, _) => {
-            //     return Err(CodegenError::GlobalDefineOnlyAllowsToVar(sym.clone()));
-            // }
         };
     }
 
     Ok(())
 }
 
-pub fn codegen(filename: &str, stvec: &[SyntaxTree]) -> Result<Vec<UnresolvedProc>, CodegenError> {
-    let mut state = CodegenState::new(filename);
+pub fn codegen_file(
+    filename: &str,
+    stvec: &[SyntaxTree],
+    state: &mut CodegenState,
+) -> Result<(), CodegenError> {
+    state.filename = filename.to_string();
+    codegen_syntax_trees(stvec, state)
+}
 
-    match codegen_syntax_trees(stvec, &mut state) {
-        Ok(()) => Ok(state.procs),
-        Err(err) => Err(err),
+pub fn list_defined_procs(
+    sources: &[(&str, Vec<SyntaxTree>)],
+) -> Vec<(String, ProcType, Signature)> {
+    let mut procs = Vec::new();
+
+    for (_, stvec) in sources.iter() {
+        for st in stvec.iter() {
+            let proc = match st {
+                SyntaxTree::DefProc(Name(name), signature, _) => {
+                    (name.to_string(), ProcType::Proc, signature.clone())
+                }
+                SyntaxTree::DefBullet(Name(name), signature, _) => {
+                    (name.to_string(), ProcType::Bullet, signature.clone())
+                }
+                SyntaxTree::DefStage(Name(name), signature, _) => {
+                    (name.to_string(), ProcType::Stage, signature.clone())
+                }
+            };
+
+            procs.push(proc);
+        }
     }
+
+    procs
+}
+
+pub fn codegen(sources: &[(&str, Vec<SyntaxTree>)]) -> Result<Vec<UnresolvedProc>, CodegenError> {
+    let mut state = CodegenState::new();
+    state.defined_procs = list_defined_procs(sources);
+
+    for (filename, stvec) in sources.iter() {
+        if let Err(err) = codegen_file(filename, &stvec, &mut state) {
+            return Err(err);
+        }
+    }
+
+    Ok(state.procs)
 }
 
 // fn place_proc_into_code(

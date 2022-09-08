@@ -51,6 +51,7 @@ impl Continuation {
             Some(inst) => match inst {
                 Inst::Term => Ok(SuspendingReason::Terminated),
                 Inst::Operate(op) => match op {
+                    ExternalOperation::FireDummy(_) => unreachable!(),
                     ExternalOperation::Fire(id) => {
                         let y = stack_pop!(self.stack);
                         let x = stack_pop!(self.stack);
@@ -123,6 +124,8 @@ impl Continuation {
 
                     Ok(SuspendingReason::Running)
                 }
+                Inst::ReadGlobal(_offset, r#_type) => todo!(),
+                Inst::WriteGlobal(_offset) => todo!(),
                 Inst::Float(f) => {
                     self.stack.push(Data::Float(*f));
                     Ok(SuspendingReason::Running)
