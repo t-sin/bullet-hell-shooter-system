@@ -118,66 +118,6 @@ impl StackInfo {
 }
 
 #[derive(Debug, Clone)]
-pub struct MemoryInfo(pub Vec<(String, Type)>);
-
-impl MemoryInfo {
-    pub fn new() -> Self {
-        Self(Vec::new())
-    }
-
-    pub fn add(&mut self, name: &str, r#type: Type) {
-        self.0.push((name.to_string(), r#type));
-    }
-
-    fn info_list(&self) -> &[(String, Type)] {
-        &self.0
-    }
-
-    fn find(&mut self, name: &str) -> Option<(usize, (String, Type))> {
-        match self.0.iter().enumerate().find(|(_, (n, _))| n == name) {
-            Some((idx, val)) => Some((idx, val.clone())),
-            None => None,
-        }
-    }
-
-    fn current_offset(&self) -> usize {
-        let mut offset = 0;
-
-        for m in self.0.iter() {
-            let size = match m.1 {
-                Type::Float => 4,
-                Type::Bool => 1,
-                Type::String => 0, // string stored as [size, ch0, ch1, ...]
-            };
-
-            offset += size;
-        }
-
-        offset
-    }
-
-    pub fn calculate_offset(&self, name: &str) -> usize {
-        let mut offset = 0;
-
-        for (_idx, m) in self.0.iter().enumerate() {
-            let size = match m.1 {
-                Type::Float => 4,
-                Type::Bool => 1,
-                Type::String => 0, // string stored as [size, ch0, ch1, ...]
-            };
-
-            if m.0 == name {
-                break;
-            } else {
-                offset += size;
-            }
-        }
-
-        offset
-    }
-}
-
-#[derive(Debug, Clone)]
 pub enum ProcType {
     Proc,
     Bullet,
