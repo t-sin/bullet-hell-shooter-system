@@ -4,11 +4,11 @@ use lang_component::{
     vm::{ExternalOperation, Inst},
 };
 
-type VarInfo = (Type, String);
+type DefinedVar = (Type, String);
 
 #[derive(Debug, Clone)]
 enum StackData {
-    Var(VarInfo),
+    Var(DefinedVar),
     Float,
     Bool,
     String,
@@ -155,8 +155,8 @@ pub struct CodegenState {
     current_proc: String,
     procs: Vec<UnresolvedProc>,
     defined_procs: Vec<(String, ProcType, Signature)>,
-    defined_local_vars: Vec<VarInfo>,
-    defined_global_vars: Vec<VarInfo>,
+    defined_local_vars: Vec<DefinedVar>,
+    defined_global_vars: Vec<DefinedVar>,
     stack: StackInfo,
 }
 
@@ -833,7 +833,7 @@ pub fn list_defined_procs(
     procs
 }
 
-pub fn list_defined_local_vars(sources: &[(&str, Vec<SyntaxTree>)]) -> Vec<VarInfo> {
+pub fn list_defined_local_vars(sources: &[(&str, Vec<SyntaxTree>)]) -> Vec<DefinedVar> {
     let mut vars = Vec::new();
 
     let mut check_assignment = |bodies: &[Body]| {
@@ -863,7 +863,7 @@ pub fn list_defined_local_vars(sources: &[(&str, Vec<SyntaxTree>)]) -> Vec<VarIn
     vars
 }
 
-pub fn list_defined_global_vars(sources: &[(&str, Vec<SyntaxTree>)]) -> Vec<VarInfo> {
+pub fn list_defined_global_vars(sources: &[(&str, Vec<SyntaxTree>)]) -> Vec<DefinedVar> {
     let mut vars = Vec::new();
 
     let mut check_assignment = |bodies: &[Body]| {
