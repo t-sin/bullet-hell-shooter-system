@@ -138,14 +138,28 @@ pub struct ResolveInfo {
 }
 
 #[derive(Debug, Clone)]
+pub enum IOType {
+    Read,
+    Write,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnresolvedVar {
+    pub name: String,
+    pub r#type: Type,
+    pub io_type: IOType,
+    pub offset: usize,
+}
+
+#[derive(Debug, Clone)]
 pub struct UnresolvedProc {
     pub name: String,
     pub r#type: ProcType,
     pub filename: String,
     pub code: Vec<Inst>,
     pub offset_address: usize,
-    pub local_memory: MemoryInfo,
-    pub global_memory: MemoryInfo,
+    pub local_memory: Vec<UnresolvedVar>,
+    pub global_memory: Vec<UnresolvedVar>,
     pub unresolved_list: Vec<ResolveInfo>,
 }
 
@@ -367,10 +381,9 @@ fn codegen_expr(expr: &Expr, state: &mut CodegenState) -> Result<(), CodegenErro
                 {
                     let proc = state.current_proc_mut().unwrap();
                     if let ProcType::Bullet = proc.r#type {
-                        if let Some((_, (name, r#type))) = proc.local_memory.find(name) {
-                            let offset = proc.local_memory.calculate_offset(&name);
-                            emit!(state, Inst::Read(offset, r#type));
-                            state.stack.push(StackData::from(r#type));
+                        if let Some(var) = proc.local_memory.iter().find(|v| v.name == *name) {
+                            emit!(state, Inst::Read(0, var.r#type));
+                            state.stack.push(StackData::from(var.r#type));
                             return Ok(());
                         }
                     }
@@ -747,8 +760,8 @@ fn codegen_proc(
         filename: state.filename.clone(),
         code: Vec::new(),
         offset_address: 1000000,
-        local_memory: MemoryInfo::new(),
-        global_memory: MemoryInfo::new(),
+        local_memory: Vec::new(),
+        global_memory: Vec::new(),
         unresolved_list: Vec::new(),
     };
 
